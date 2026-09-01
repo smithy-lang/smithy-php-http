@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Smithy\Http\Connection;
+namespace Smithy\Http\Client\Connection;
 
 /**
  * A protocol-agnostic handle for executing a single HTTP request.

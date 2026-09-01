@@ -58,13 +58,13 @@ final class Request implements RequestInterface
                 : $this->headers = $headers;
         }
 
-        // Accept streams directly and wrap strings in StringBodyStream.
+        // Accept streams directly and wrap strings in StringRequestStream.
         if ($body instanceof StreamInterface) {
             $this->body = StreamBodyAdapter::wrap($body);
         } elseif (\is_string($body) && $body !== '') {
-            $this->body = new StringBodyStream($body);
+            $this->body = new StringRequestStream($body);
         } else {
-            $this->body = StringBodyStream::empty();
+            $this->body = StringRequestStream::empty();
         }
 
         // PSR-7: Set Host header from URI if not provided.

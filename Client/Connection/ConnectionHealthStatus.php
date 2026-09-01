@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Smithy\Http\Connection;
+namespace Smithy\Http\Client\Connection;
 
 /**
  * Health status of an HTTP connection.
@@ -18,6 +18,6 @@ enum ConnectionHealthStatus
     /** Connection experienced errors or throughput degradation. */
     case UNHEALTHY;
 
-    /** Health has not been determined (e.g. freshly created). */
+    /** Health is pending. */
     case UNKNOWN;
 }

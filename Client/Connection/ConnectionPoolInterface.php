@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Smithy\Http\Connection;
+namespace Smithy\Http\Client\Connection;
 
 /**
  * FIFO pool of idle HTTP connections.
@@ -48,9 +48,9 @@ interface ConnectionPoolInterface
      * than the given timeout.
      *
      * @param float $idleTimeout Idle timeout in seconds.
-     * @return int Number of connections pruned.
+     * @return list<HttpConnectionInterface> Pruned connections.
      */
-    public function prune(float $idleTimeout): int;
+    public function prune(float $idleTimeout): array;
 
     /**
      * Close all connections and empty the pool.

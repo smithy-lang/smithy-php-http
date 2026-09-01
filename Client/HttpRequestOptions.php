@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace Smithy\Http\Client;
 
+use Smithy\Http\Client\Cancellation\CancellationInterface;
+
 /**
  * Configure transport behavior for one HTTP request.
+ *
+ * Connection setup belongs to ConnectConfiguration on the connection
+ * manager.
  */
 final class HttpRequestOptions
 {
@@ -16,8 +21,6 @@ final class HttpRequestOptions
     private const MIN_RESPONSE_BUFFER_SIZE = 16 * 1024;
 
     /**
-     * Create request options.
-     *
      * @throws \InvalidArgumentException If a timeout, limit, or buffer size
      *                                   is invalid.
      */
@@ -38,6 +41,9 @@ final class HttpRequestOptions
 
         /** Request trailer fields for transports that support them. */
         public readonly ?RequestTrailers $trailers = null,
+
+        /** Signal used to cancel connection acquisition or transfer. */
+        public readonly ?CancellationInterface $cancellation = null,
 
         /** Maximum buffered response bytes before transport backpressure. */
         public readonly int $responseBufferSize = 64 * 1024,

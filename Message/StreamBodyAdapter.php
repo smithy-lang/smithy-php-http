@@ -9,7 +9,7 @@ use Psr\Http\Message\StreamInterface;
 /**
  * Adapt a generic PSR-7 stream to the body stream contract.
  */
-final class StreamBodyAdapter implements BodyStreamInterface
+final class StreamBodyAdapter implements RequestStreamInterface
 {
     private int $startOffset;
     private ?int $length;
@@ -30,9 +30,9 @@ final class StreamBodyAdapter implements BodyStreamInterface
     /**
      * Wrap a PSR-7 stream in the body stream contract.
      */
-    public static function wrap(StreamInterface $stream): BodyStreamInterface
+    public static function wrap(StreamInterface $stream): RequestStreamInterface
     {
-        if ($stream instanceof BodyStreamInterface) {
+        if ($stream instanceof RequestStreamInterface) {
             return $stream;
         }
 
@@ -234,7 +234,7 @@ final class StreamBodyAdapter implements BodyStreamInterface
      */
     public function hash(string $algo = 'sha256', bool $raw = false): string
     {
-        if ($this->inner instanceof BodyStreamInterface) {
+        if ($this->inner instanceof RequestStreamInterface) {
             return $this->inner->hash($algo, $raw);
         }
 
@@ -267,7 +267,7 @@ final class StreamBodyAdapter implements BodyStreamInterface
      */
     public function isReplayable(): bool
     {
-        return $this->inner instanceof BodyStreamInterface
+        return $this->inner instanceof RequestStreamInterface
             ? $this->inner->isReplayable()
             : $this->inner->isSeekable();
     }
@@ -277,7 +277,7 @@ final class StreamBodyAdapter implements BodyStreamInterface
      */
     public function isAvailable(): bool
     {
-        return $this->inner instanceof BodyStreamInterface
+        return $this->inner instanceof RequestStreamInterface
             ? $this->inner->isAvailable()
             : !$this->started || $this->inner->isSeekable();
     }

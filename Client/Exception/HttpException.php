@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Smithy\Http\Client\Exception;
+
+use Psr\Http\Client\ClientExceptionInterface;
+use Psr\Http\Message\RequestInterface;
+
+/**
+ * Thrown on transport-level HTTP failures.
+ *
+ * This covers connection refused, timeouts, DNS resolution failures,
+ * and similar transport errors.
+ */
+class HttpException extends \RuntimeException implements
+    ClientExceptionInterface
+{
+    public function __construct(
+        string $message,
+        public readonly RequestInterface $request,
+        ?\Throwable $previous = null,
+        public readonly bool $requestBodyStarted = false,
+        public readonly bool $requestBodyFullyConsumed = false,
+        public readonly ?bool $requestBodySeekable = null
+    )
+    {
+        parent::__construct($message, 0, $previous);
+    }
+
+    /**
+     * Return the request associated with the failure.
+     */
+    public function getRequest(): RequestInterface
+    {
+        return $this->request;
+    }
+}

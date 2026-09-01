@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Smithy\Http\Connection;
+namespace Smithy\Http\Client\Connection;
 
 /**
  * The HTTP protocol version actually negotiated on a connection.

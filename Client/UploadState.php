@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Smithy\Http\Client;
 
-use Smithy\Http\Message\BodyStreamInterface;
+use Smithy\Http\Message\RequestStreamInterface;
 
 /**
  * Track mutable request upload state shared with transport callbacks.
@@ -30,7 +30,7 @@ final class UploadState
      * Create upload state for a streamed request body.
      */
     public function __construct(
-        public readonly BodyStreamInterface $body,
+        public readonly RequestStreamInterface $body,
         public readonly ?int $expectedLength = null
     ) {}
 }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Smithy\Http\Connection;
+namespace Smithy\Http\Client\Connection;
 
 /**
  * A single HTTP connection with state and health tracking.
@@ -20,8 +20,7 @@ interface HttpConnectionInterface
     /**
      * Close the connection and release underlying resources.
      *
-     * After close(), state() must return CLOSED and the
-     * connection must not be reused.
+     * After close(), state() must return CLOSED and reuse is invalid.
      *
      * @return void
      */
@@ -37,7 +36,7 @@ interface HttpConnectionInterface
      *
      * HEALTHY: connection completed its last request successfully.
      * UNHEALTHY: connection experienced errors or throughput degradation.
-     * UNKNOWN: health has not been determined yet.
+     * UNKNOWN: health is pending.
      */
     public function healthStatus(): ConnectionHealthStatus;
 

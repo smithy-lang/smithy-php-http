@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Smithy\Http\Connection;
+namespace Smithy\Http\Client\Connection;
 
 /**
  * Context for a connection: where it connects to.
@@ -13,9 +13,6 @@ namespace Smithy\Http\Connection;
  */
 final class RequestContext
 {
-    /**
-     * Create connection request context.
-     */
     public function __construct(
         public readonly string $scheme,
         public readonly string $host,

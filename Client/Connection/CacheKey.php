@@ -2,19 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Smithy\Http\Connection;
+namespace Smithy\Http\Client\Connection;
 
 /**
  * Identify a unique pooled connection destination.
  *
- * Connection pools are keyed by target URI and proxy URI so connections
- * through different proxies are not mixed.
+ * Connection pools are keyed by target URI and proxy URI to isolate each
+ * proxy route.
  */
 final class CacheKey implements \Stringable
 {
-    /**
-     * Create connection pool cache key.
-     */
     public function __construct(
         /** Target authority, such as "scheme://host:port". */
         public readonly string $target,

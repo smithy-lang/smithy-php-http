@@ -10,6 +10,9 @@ use Psr\Http\Message\StreamInterface;
  * Implement an immutable Smithy HTTP response.
  *
  * All with*() methods return a new instance.
+ *
+ * This is the HTTP response type returned by the transport layer. The
+ * deserializer consumes it to produce typed operation output shapes.
  */
 final class Response implements ResponseInterface
 {
@@ -85,8 +88,6 @@ final class Response implements ResponseInterface
     private readonly ResponseTrailers $trailers;
 
     /**
-     * Create an HTTP response.
-     *
      * @param int $status HTTP status code
      * @param array<string, string|string[]> $headers Response headers
      * @param string|StreamInterface|null $body Response body
@@ -106,7 +107,8 @@ final class Response implements ResponseInterface
         string $reason = '',
         ?ResponseTrailers $trailers = null,
         bool $normalizedHeaders = false
-    ) {
+    )
+    {
         HttpMessageValidator::validateStatusCode($status);
         HttpMessageValidator::validateReasonPhrase($reason);
         HttpMessageValidator::validateProtocolVersion($protocolVersion);
@@ -123,19 +125,19 @@ final class Response implements ResponseInterface
                 : $this->setHeaders($headers);
         }
 
-        if ($body instanceof StreamInterface) {
-            $this->body = StreamBodyAdapter::wrap($body);
+        if ($body instanceof ResponseStreamInterface) {
+            $this->body = $body;
+        } elseif ($body instanceof StreamInterface) {
+            $this->body = $body;
         } elseif (\is_string($body) && $body !== '') {
-            $this->body = new StringBodyStream($body);
+            $this->body = Stream::create($body);
         } else {
-            $this->body = StringBodyStream::empty();
+            $this->body = Stream::empty();
         }
     }
 
     /**
      * Create a response from trusted normalized headers.
-     *
-     * Skips header validation and normalization.
      *
      * @param array<string, array{0: string, 1: list<string>}> $headers
      */
@@ -146,7 +148,8 @@ final class Response implements ResponseInterface
         string $protocolVersion = '1.1',
         string $reason = '',
         ?ResponseTrailers $trailers = null
-    ): self {
+    ): self
+    {
         return new self(
             $status,
             $headers,
@@ -201,6 +204,12 @@ final class Response implements ResponseInterface
      */
     public function discardBody(): void
     {
+        if ($this->body instanceof ResponseStreamInterface) {
+            $this->body->discard();
+
+            return;
+        }
+
         $this->body->close();
     }
 

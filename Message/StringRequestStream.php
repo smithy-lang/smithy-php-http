@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Smithy\Http\Message;
 
 /**
- * String-backed body stream.
+ * String-backed request stream.
  */
-final class StringBodyStream implements BodyStreamInterface
+final class StringRequestStream implements RequestStreamInterface
 {
     private static ?self $empty = null;
 
@@ -63,7 +63,7 @@ final class StringBodyStream implements BodyStreamInterface
     }
 
     /**
-     * Get the body length.
+     * Get the request length.
      */
     public function length(): int
     {
@@ -157,7 +157,7 @@ final class StringBodyStream implements BodyStreamInterface
      */
     public function write(string $string): int
     {
-        throw new \RuntimeException('StringBodyStream is not writable.');
+        throw new \RuntimeException('StringRequestStream is not writable.');
     }
 
     /**
