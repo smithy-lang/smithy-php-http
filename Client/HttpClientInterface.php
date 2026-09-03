@@ -20,6 +20,11 @@ use Smithy\Http\Client\Exception\HttpException;
 interface HttpClientInterface extends ClientInterface
 {
     /**
+     * Return the options used when no per-request options are provided.
+     */
+    public function getDefaultRequestOptions(): HttpRequestOptions;
+
+    /**
      * Send a single HTTP request and return the response.
      *
      * @param RequestInterface $request PSR-7 request to send.
