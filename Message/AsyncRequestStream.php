@@ -409,6 +409,44 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
     }
 
     /**
+     * Suspend until a read can return data, EOF, or an error.
+     */
+    public function awaitReadable(): void
+    {
+        if ($this->isReady()) {
+            return;
+        }
+
+        $subscriptionId = null;
+        $this->eventLoop->suspend(
+            function (
+                callable $resume
+            ) use (&$subscriptionId): void
+            {
+                if ($this->isReady()) {
+                    $resume();
+
+                    return;
+                }
+
+                $subscriptionId = $this->subscribe(
+                    function () use (
+                        &$subscriptionId,
+                        $resume
+                    ): void
+                    {
+                        if ($subscriptionId !== null) {
+                            $this->unsubscribe($subscriptionId);
+                        }
+
+                        $resume();
+                    }
+                );
+            }
+        );
+    }
+
+    /**
      * Subscribe to transitions from unavailable to readable.
      *
      * The callback receives no arguments. It is a readiness signal only:

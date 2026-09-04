@@ -15,6 +15,13 @@ interface AsyncRequestStreamInterface extends RequestStreamInterface
     public function isReady(): bool;
 
     /**
+     * Suspend until a read can return data, EOF, or an error.
+     *
+     * @return void
+     */
+    public function awaitReadable(): void;
+
+    /**
      * Subscribe to transitions from unavailable to readable.
      *
      * The callback receives no arguments. It is a readiness signal only:
