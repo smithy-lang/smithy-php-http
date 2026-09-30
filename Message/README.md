@@ -54,7 +54,8 @@ When the `Host` header is omitted, `Request` derives it from the URI.
 
 `Request::fromNormalized()` and `Response::fromNormalized()` accept trusted
 headers in the internal normalized representation. Protocol serializers use
-these factories to skip repeated header normalization.
+these factories to skip repeated header normalization after validating
+application-controlled header names and values.
 
 ## Streams
 

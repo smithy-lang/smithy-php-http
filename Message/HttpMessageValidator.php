@@ -102,6 +102,25 @@ final class HttpMessageValidator
     }
 
     /**
+     * Validate an HTTP header value.
+     *
+     * @return void
+     * @throws \InvalidArgumentException If the value contains control bytes.
+     */
+    public static function validateHeaderValue(string $value): void
+    {
+        if (\preg_match(
+            self::INVALID_FIELD_VALUE_PATTERN,
+            $value
+        ) === 1
+        ) {
+            throw new \InvalidArgumentException(
+                'HTTP header values contain invalid control bytes.'
+            );
+        }
+    }
+
+    /**
      * Normalize HTTP header values.
      *
      * @param mixed $value Header value or array of header values.
@@ -127,15 +146,7 @@ final class HttpMessageValidator
                 );
             }
 
-            if (\preg_match(
-                self::INVALID_FIELD_VALUE_PATTERN,
-                $fieldValue
-            ) === 1
-            ) {
-                throw new \InvalidArgumentException(
-                    'HTTP header values contain invalid control bytes.'
-                );
-            }
+            self::validateHeaderValue($fieldValue);
 
             $normalized[] = \trim($fieldValue, " \t");
         }
