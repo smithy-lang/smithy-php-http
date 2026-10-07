@@ -45,7 +45,6 @@ final class CurlResponseState
 
     public function __construct(
         ?StreamingResponseStream $body,
-        private readonly bool $followRedirects,
         private readonly bool $decodeContent = true,
         private readonly int $maxResponseBodyBytes = 0,
         private readonly bool $responseBodyAllowed = true,
@@ -522,24 +521,6 @@ final class CurlResponseState
             $this->proxyConnectResponseIgnored = true;
 
             return true;
-        }
-
-        return $this->followRedirects
-            && $this->currentStatus >= 300
-            && $this->currentStatus < 400
-            && $this->currentStatus !== 304
-            && $this->hasCurrentHeader('Location');
-    }
-
-    /**
-     * Determine whether the current response has a named header.
-     */
-    private function hasCurrentHeader(string $name): bool
-    {
-        foreach ($this->currentHeaders as $headerName => $_) {
-            if (\strcasecmp($headerName, $name) === 0) {
-                return true;
-            }
         }
 
         return false;

@@ -270,7 +270,6 @@ final class CurlClient extends AbstractHttpClient
             $responseBody = null;
             $responseState = new CurlResponseState(
                 $responseBody,
-                $options->followRedirects,
                 $options->decodeContent,
                 $options->maxResponseBodyBytes,
                 $responseBodyAllowed,
@@ -299,13 +298,10 @@ final class CurlClient extends AbstractHttpClient
             $curlOptions = [
                 CURLOPT_URL => (string) $request->getUri(),
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-                CURLOPT_REDIR_PROTOCOLS =>
-                    CURLPROTO_HTTP | CURLPROTO_HTTPS,
                 CURLOPT_CUSTOMREQUEST => $requestMethod,
                 CURLOPT_NOBODY => \strcasecmp($requestMethod, 'HEAD') === 0,
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_FOLLOWLOCATION =>
-                    $options->followRedirects,
+                CURLOPT_FOLLOWLOCATION => false,
                 CURLOPT_TIMEOUT_MS =>
                     self::timeoutToCurlMilliseconds($options->timeout),
                 CURLOPT_HTTP_CONTENT_DECODING =>
@@ -479,22 +475,6 @@ final class CurlClient extends AbstractHttpClient
                 $useNativeReadData = self::canUseNativeReadData(
                     $uploadState->body
                 );
-
-                if ($options->followRedirects
-                    && (
-                        !$useNativeReadData
-                        || !$uploadState->body->isReplayable()
-                        || !self::nativeReadDataStartsAtOffsetZero(
-                            $uploadState->body
-                        )
-                    )
-                ) {
-                    throw new RequestException(
-                        'CurlClient cannot follow redirects for request '
-                            . 'bodies that cURL cannot rewind.',
-                        $request
-                    );
-                }
 
                 $uploadOptions = [CURLOPT_UPLOAD => true];
                 if (\defined('CURLOPT_UPLOAD_BUFFERSIZE')) {
@@ -2211,20 +2191,6 @@ final class CurlClient extends AbstractHttpClient
         return $body instanceof ResourceRequestStream
             && $body->isReadable()
             && $body->getMetadata('wrapper_type') !== 'user-space';
-    }
-
-    /**
-     * Determine whether native cURL upload rewind preserves the body start.
-     */
-    private static function nativeReadDataStartsAtOffsetZero(
-        RequestStreamInterface $body
-    ): bool
-    {
-        if (!$body instanceof ResourceRequestStream) {
-            return true;
-        }
-
-        return $body->tell() === 0;
     }
 
     /**

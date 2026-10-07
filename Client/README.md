@@ -88,7 +88,7 @@ $client = new CurlClient(
 
 $response = $client->sendRequest(
     $request,
-    new HttpRequestOptions(followRedirects: true)
+    new HttpRequestOptions(timeout: 5.0)
 );
 ```
 
@@ -96,7 +96,6 @@ $response = $client->sendRequest(
 |---|---:|---|
 | `timeout` | 30 seconds | Limits time to final headers for streamed responses and full delivery for buffered responses. Zero disables the limit. |
 | `readTimeout` | 30 seconds | Limits inactivity while reading a streamed body. Zero disables the limit. |
-| `followRedirects` | `false` | Allows cURL to follow redirects. |
 | `proxy` | `null` | Routes the request through the supplied proxy URL. |
 | `decodeContent` | `true` | Requests automatic content decoding from cURL. |
 | `cancellation` | `null` | Cancels connection acquisition or transfer work. |
@@ -109,6 +108,7 @@ $response = $client->sendRequest(
 
 `CurlClient` requires `trailers` to remain `null` and throws
 `InvalidArgumentException` when a request supplies them.
+Redirect responses are returned to the caller and are not followed.
 
 ## Request Transfer
 
@@ -117,9 +117,8 @@ metadata. It supports known and unknown lengths, HTTP/1.1 chunked transfer,
 HTTP/2 streaming, and incremental producers.
 
 The transport validates declared body lengths. It reports premature EOF,
-extra bytes, and stalled producers as request failures. Redirects for
-streamed request bodies require a replayable body that can return to its
-starting offset.
+extra bytes, and stalled producers as request failures. It never follows
+redirect responses, so request bodies are not replayed automatically.
 
 The [message README](../Message/README.md) describes the available request
 body implementations.

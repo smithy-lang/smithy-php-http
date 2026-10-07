@@ -30,9 +30,6 @@ final class HttpRequestOptions
          */
         public readonly float $timeout = 30.0,
 
-        /** Whether to follow redirects. */
-        public readonly bool $followRedirects = false,
-
         /** Proxy URL (e.g. "http://proxy:8080"), or null for direct. */
         public readonly ?string $proxy = null,
 
