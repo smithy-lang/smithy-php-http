@@ -249,6 +249,10 @@ settings, and default request options for generated client assembly.
 The client depends on `smithy/async`, `psr/http-client`,
 `psr/http-message`, and `revolt/event-loop`.
 
+## Design
+
+See [Curl HTTP Transport Design](../../../docs/design/http/client/curl-http-transport.md).
+
 ## Contributing
 
 Run the client tests from the monorepo root:

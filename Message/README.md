@@ -157,6 +157,10 @@ failure is also reported through the trailer state.
 The message layer depends on `psr/http-message`. Incremental and streamed
 bodies use the `smithy/async` event-loop contract.
 
+## Design
+
+See [HTTP Messages and Streaming Design](../../../docs/design/http/message/http-messages-and-streaming.md).
+
 ## Contributing
 
 Run the message tests from the monorepo root:
