@@ -13,6 +13,16 @@ use Psr\Http\Message\UriInterface;
  */
 final class Uri implements UriInterface
 {
+    /**
+     * Match raw control bytes that are prohibited in URI strings.
+     */
+    private const INVALID_URI_CONTROL_PATTERN = '/[\x00-\x1F\x7F]/';
+
+    /**
+     * Match an RFC 3986 scheme component.
+     */
+    private const SCHEME_PATTERN = '/\A[A-Za-z][A-Za-z0-9+.-]*\z/';
+
     private const DEFAULT_PORTS = [
         'http' => 80,
         'https' => 443
@@ -35,9 +45,20 @@ final class Uri implements UriInterface
             return;
         }
 
+        self::validateNoControlBytes($uri);
+
         $parts = \parse_url($uri);
         if ($parts === false) {
             throw new \InvalidArgumentException("Unable to parse URI: {$uri}");
+        }
+
+        if (\array_key_exists('user', $parts)
+            || \array_key_exists('pass', $parts)
+        ) {
+            throw new \InvalidArgumentException(
+                'HTTP URI userinfo is prohibited because it can cause '
+                    . 'authority confusion.'
+            );
         }
 
         $this->scheme = isset($parts['scheme'])
@@ -58,12 +79,6 @@ final class Uri implements UriInterface
         $this->fragment = isset($parts['fragment'])
             ? $this->filterQueryOrFragment($parts['fragment'])
             : '';
-
-        $user = $parts['user'] ?? '';
-        $pass = $parts['pass'] ?? null;
-        if ($user !== '') {
-            $this->userInfo = $pass !== null ? "{$user}:{$pass}" : $user;
-        }
     }
 
     /**
@@ -149,6 +164,15 @@ final class Uri implements UriInterface
      */
     public function withScheme(string $scheme): UriInterface
     {
+        self::validateNoControlBytes($scheme);
+        if ($scheme !== ''
+            && \preg_match(self::SCHEME_PATTERN, $scheme) !== 1
+        ) {
+            throw new \InvalidArgumentException(
+                'Invalid HTTP URI scheme.'
+            );
+        }
+
         $scheme = \strtolower($scheme);
         if ($scheme === $this->scheme) {
             return $this;
@@ -166,19 +190,14 @@ final class Uri implements UriInterface
      */
     public function withUserInfo(string $user, ?string $password = null): UriInterface
     {
-        $info = $user;
-        if ($password !== null && $password !== '') {
-            $info .= ':' . $password;
+        if ($user !== '' || ($password !== null && $password !== '')) {
+            throw new \InvalidArgumentException(
+                'HTTP URI userinfo is prohibited because it can cause '
+                    . 'authority confusion.'
+            );
         }
 
-        if ($info === $this->userInfo) {
-            return $this;
-        }
-
-        $new = clone $this;
-        $new->userInfo = $info;
-
-        return $new;
+        return $this;
     }
 
     /**
@@ -186,6 +205,13 @@ final class Uri implements UriInterface
      */
     public function withHost(string $host): UriInterface
     {
+        self::validateNoControlBytes($host);
+        if (\str_contains($host, '@')) {
+            throw new \InvalidArgumentException(
+                'HTTP URI hosts must not contain userinfo.'
+            );
+        }
+
         $host = \strtolower($host);
         if ($host === $this->host) {
             return $this;
@@ -344,5 +370,17 @@ final class Uri implements UriInterface
             fn(array $match) => \rawurlencode($match[0]),
             $str
         );
+    }
+
+    /**
+     * Reject raw control bytes in a URI or URI component.
+     */
+    private static function validateNoControlBytes(string $value): void
+    {
+        if (\preg_match(self::INVALID_URI_CONTROL_PATTERN, $value) === 1) {
+            throw new \InvalidArgumentException(
+                'HTTP URIs must not contain control bytes.'
+            );
+        }
     }
 }
