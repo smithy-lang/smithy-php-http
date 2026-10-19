@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Smithy\Http\Client;
 
+use Smithy\Client\Transport\TransportOptionsInterface;
 use Smithy\Http\Client\Cancellation\CancellationInterface;
 
 /**
@@ -12,7 +13,7 @@ use Smithy\Http\Client\Cancellation\CancellationInterface;
  * Connection setup belongs to ConnectConfiguration on the connection
  * manager.
  */
-final class HttpRequestOptions
+final class HttpRequestOptions implements TransportOptionsInterface
 {
     private const MIN_UPLOAD_BUFFER_SIZE = 16 * 1024;
     private const MAX_UPLOAD_BUFFER_SIZE = 2 * 1024 * 1024;
