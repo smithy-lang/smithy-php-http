@@ -13,13 +13,16 @@ use Psr\Http\Message\RequestInterface;
 class RequestException extends \InvalidArgumentException implements
     RequestExceptionInterface
 {
+    public readonly RequestInterface $request;
+
     public function __construct(
         string $message,
-        public readonly RequestInterface $request,
+        RequestInterface $request,
         ?\Throwable $previous = null
     )
     {
         parent::__construct($message, 0, $previous);
+        $this->request = ExceptionRequestSanitizer::sanitize($request);
     }
 
     /**

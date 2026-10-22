@@ -16,9 +16,11 @@ use Psr\Http\Message\RequestInterface;
 class HttpException extends \RuntimeException implements
     ClientExceptionInterface
 {
+    public readonly RequestInterface $request;
+
     public function __construct(
         string $message,
-        public readonly RequestInterface $request,
+        RequestInterface $request,
         ?\Throwable $previous = null,
         public readonly bool $requestBodyStarted = false,
         public readonly bool $requestBodyFullyConsumed = false,
@@ -26,6 +28,7 @@ class HttpException extends \RuntimeException implements
     )
     {
         parent::__construct($message, 0, $previous);
+        $this->request = ExceptionRequestSanitizer::sanitize($request);
     }
 
     /**
