@@ -82,6 +82,17 @@ final class CurlResponseState
     }
 
     /**
+     * Determine whether a streamed response can be delivered.
+     */
+    public function isStreamedResponseReady(): bool
+    {
+        return $this->headersComplete
+            && $this->body() !== null
+            && !$this->responseDelivered
+            && $this->bodyWriteError === null;
+    }
+
+    /**
      * Determine whether final response headers require streaming.
      */
     public function shouldStreamResponseBody(): bool

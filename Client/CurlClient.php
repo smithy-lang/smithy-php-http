@@ -823,11 +823,17 @@ final class CurlClient extends AbstractHttpClient
                 string $chunk
             ) use ($responseState): int
             {
-                if ($chunk !== '') {
-                    $this->callbackActivityObserved = true;
-                }
+                try {
+                    if ($chunk !== '') {
+                        $this->callbackActivityObserved = true;
+                    }
 
-                return $responseState->consumeBody($chunk);
+                    return $responseState->consumeBody($chunk);
+                } catch (\Throwable $error) {
+                    $responseState->bodyWriteError ??= $error;
+
+                    return 0;
+                }
             };
             \curl_setopt(
                 $handle,
@@ -842,8 +848,9 @@ final class CurlClient extends AbstractHttpClient
                     $length = \strlen($header);
                     $this->callbackActivityObserved = true;
 
-                    if ($responseState->consumeHeader($header)) {
-                        if ($responseState->shouldStreamResponseBody()
+                    try {
+                        if ($responseState->consumeHeader($header)
+                            && $responseState->shouldStreamResponseBody()
                             && !$responseState->isStreaming()
                         ) {
                             if (!\curl_setopt(
@@ -862,13 +869,10 @@ final class CurlClient extends AbstractHttpClient
                                     $writeCallback
                                 )
                             ) {
-                                $responseState->bodyWriteError =
-                                    new \RuntimeException(
-                                        'Unable to configure streamed '
-                                            . 'response body.'
-                                    );
-
-                                return 0;
+                                throw new \RuntimeException(
+                                    'Unable to configure streamed '
+                                        . 'response body.'
+                                );
                             }
 
                             $responseState
@@ -897,37 +901,10 @@ final class CurlClient extends AbstractHttpClient
                                         $scanMask;
                             }
                         }
+                    } catch (\Throwable $error) {
+                        $responseState->bodyWriteError ??= $error;
 
-                        $pending =
-                            $this->pending[$handleId] ?? null;
-                        if ($pending !== null) {
-                            $streamState =
-                                $pending->responseState;
-                            $policyError = $this
-                                ->createHttpVersionPolicyExceptionFromState(
-                                    $pending,
-                                    $streamState
-                                );
-                            if ($policyError !== null) {
-                                $streamState->bodyWriteError = $policyError;
-
-                                return 0;
-                            }
-
-                            if ($streamState->body() !== null
-                                && !$streamState
-                                    ->responseDelivered
-                            ) {
-                                $streamState
-                                    ->responseDelivered = true;
-                                $pending->resumeWith(
-                                    $this
-                                        ->createStreamedResponse(
-                                            $streamState
-                                        )
-                                );
-                            }
-                        }
+                        return 0;
                     }
 
                     return $length;
@@ -1376,6 +1353,9 @@ final class CurlClient extends AbstractHttpClient
         }
 
         $madeProgress = $this->callbackActivityObserved;
+        if ($this->deliverStreamedResponses()) {
+            $madeProgress = true;
+        }
 
         foreach ($this->progressScanMasks as $handleId => $scanMask) {
             $pending = $this->pending[$handleId] ?? null;
@@ -1577,32 +1557,29 @@ final class CurlClient extends AbstractHttpClient
             $body = $responseState->body();
 
             if ($responseState->isStreaming()) {
-                $response = $responseState->responseDelivered
-                    ? null
-                    : $this->createStreamedResponse(
-                        $responseState
+                if (!$responseState->responseDelivered) {
+                    $this->failPendingRequest(
+                        $pending,
+                        new NetworkException(
+                            'Streamed HTTP response was not delivered.',
+                            $pending->request
+                        )
                     );
-                $responseState->responseDelivered = true;
+
+                    continue;
+                }
+
                 $cleanupError =
                     $this->finalizePendingRequest($pending);
                 if ($cleanupError !== null) {
                     $responseState->failTrailers($cleanupError);
-
-                    if ($response !== null) {
-                        $pending->resumeThrowing($cleanupError);
-                    } else {
-                        $body?->fail($cleanupError);
-                    }
+                    $body?->fail($cleanupError);
 
                     continue;
                 }
 
                 $responseState->completeTrailers();
                 $body?->end();
-
-                if ($response !== null) {
-                    $pending->resumeWith($response);
-                }
 
                 continue;
             }
@@ -1620,6 +1597,59 @@ final class CurlClient extends AbstractHttpClient
 
             $responseState->completeTrailers();
             $pending->resumeWith($contents ?? '');
+        }
+
+        return $madeProgress;
+    }
+
+    /**
+     * Deliver streamed responses outside cURL callbacks.
+     */
+    private function deliverStreamedResponses(): bool
+    {
+        $madeProgress = false;
+
+        foreach (\array_keys($this->pending) as $handleId) {
+            $pending = $this->pending[$handleId] ?? null;
+            if ($pending === null
+                || !$pending->responseState
+                    ->isStreamedResponseReady()
+            ) {
+                continue;
+            }
+
+            $responseState = $pending->responseState;
+            $error = $this
+                ->createHttpVersionPolicyExceptionFromState(
+                    $pending,
+                    $responseState
+                );
+
+            if ($error === null) {
+                try {
+                    $response = $this
+                        ->createStreamedResponse($responseState);
+                } catch (\Throwable $cause) {
+                    $error = $this->createTransportException(
+                        'Invalid HTTP response.',
+                        $pending->request,
+                        $cause,
+                        $pending->uploadState
+                    );
+                }
+            }
+
+            if ($error !== null) {
+                $pending = $this->takePendingRequest($handleId);
+                if ($pending !== null) {
+                    $this->failPendingRequest($pending, $error);
+                }
+            } else {
+                $responseState->responseDelivered = true;
+                $pending->resumeWith($response);
+            }
+
+            $madeProgress = true;
         }
 
         return $madeProgress;
