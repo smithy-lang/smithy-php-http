@@ -77,12 +77,19 @@ final class CurlClient extends AbstractHttpClient
         ?EventLoopInterface $eventLoop = null,
         ?ConnectionManagerInterface $connectionManager = null,
         ?ConnectConfiguration $connectConfiguration = null,
-        ?HttpRequestOptions $defaultOptions = null
+        ?HttpRequestOptions $defaultOptions = null,
+        private readonly bool $preservePath = false
     )
     {
         if (!\extension_loaded('curl')) {
             throw new \RuntimeException(
                 'The cURL PHP extension is required.'
+            );
+        }
+
+        if ($preservePath && !\defined('CURLOPT_PATH_AS_IS')) {
+            throw new \RuntimeException(
+                'This cURL build does not support preserving request paths.'
             );
         }
 
@@ -308,6 +315,10 @@ final class CurlClient extends AbstractHttpClient
                     $options->decodeContent,
                 CURLOPT_FORBID_REUSE => $forbidReuse
             ];
+
+            if ($this->preservePath) {
+                $curlOptions[\constant('CURLOPT_PATH_AS_IS')] = true;
+            }
 
             if (\defined('CURLOPT_PIPEWAIT')) {
                 $curlOptions[\constant('CURLOPT_PIPEWAIT')] =
