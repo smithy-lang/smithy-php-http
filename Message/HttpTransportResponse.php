@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace Smithy\Http\Message;
 
 use Psr\Http\Message\ResponseInterface;
-use Smithy\Client\Transport\TransportResponseInterface;
+use Smithy\Core\Transport\TransportResponseInterface;
 
 /**
  * Transport-neutral envelope containing one PSR-7 HTTP response.

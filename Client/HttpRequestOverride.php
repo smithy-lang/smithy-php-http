@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Smithy\Http\Client;
 
-use Smithy\Client\Transport\{
+use Smithy\Core\Transport\{
     TransportInterface,
     TransportOptionsInterface,
     TransportRequestInterface,

@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Smithy\Http\Message;
 
-use Smithy\Client\Transport\MessageExchangeInterface;
+use Smithy\Core\Transport\MessageExchangeInterface;
 
 /**
  * PSR-7 request and response exchange used by HTTP protocols and transports.

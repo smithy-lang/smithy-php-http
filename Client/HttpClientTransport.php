@@ -11,7 +11,7 @@ namespace Smithy\Http\Client;
 
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
-use Smithy\Client\Transport\{
+use Smithy\Core\Transport\{
     MessageExchangeInterface,
     TransportContext,
     TransportInterface,

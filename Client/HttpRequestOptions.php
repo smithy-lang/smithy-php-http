@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Smithy\Http\Client;
 
-use Smithy\Client\Transport\TransportOptionsInterface;
+use Smithy\Core\Transport\TransportOptionsInterface;
 use Smithy\Http\Client\Cancellation\CancellationInterface;
 
 /**
