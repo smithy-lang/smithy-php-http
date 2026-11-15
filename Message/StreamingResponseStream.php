@@ -29,8 +29,7 @@ final class StreamingResponseStream implements ResponseStreamInterface
     private int $blockedChunkLength = 0;
     private int $position = 0;
     private bool $started = false;
-    private StreamingResponseStreamState $state =
-        StreamingResponseStreamState::OPEN;
+    private BodyStreamState $state = BodyStreamState::OPEN;
     private bool $discarding = false;
     private ?\Throwable $failure = null;
     private ?\Closure $reader = null;
@@ -104,14 +103,6 @@ final class StreamingResponseStream implements ResponseStreamInterface
      */
     public function getSize(): ?int
     {
-        return $this->length();
-    }
-
-    /**
-     * Streaming response length is not known.
-     */
-    public function length(): ?int
-    {
         return null;
     }
 
@@ -128,9 +119,9 @@ final class StreamingResponseStream implements ResponseStreamInterface
      */
     public function eof(): bool
     {
-        return $this->state === StreamingResponseStreamState::CLOSED
+        return $this->state === BodyStreamState::CLOSED
             || (
-                $this->state === StreamingResponseStreamState::ENDED
+                $this->state === BodyStreamState::ENDED
                 && $this->failure === null
                 && $this->bufferedBytes === 0
             );
@@ -171,19 +162,6 @@ final class StreamingResponseStream implements ResponseStreamInterface
     }
 
     /**
-     * Reject attempts to replay the response.
-     *
-     * @return void
-     * @throws \RuntimeException Always.
-     */
-    public function rewindForRetry(): void
-    {
-        throw new \RuntimeException(
-            'Streamed response bodies cannot be replayed.'
-        );
-    }
-
-    /**
      * Determine whether the response can be written by consumers.
      */
     public function isWritable(): bool
@@ -208,7 +186,7 @@ final class StreamingResponseStream implements ResponseStreamInterface
      */
     public function isReadable(): bool
     {
-        return $this->state !== StreamingResponseStreamState::CLOSED;
+        return $this->state !== BodyStreamState::CLOSED;
     }
 
     /**
@@ -234,7 +212,7 @@ final class StreamingResponseStream implements ResponseStreamInterface
         }
 
         while ($this->bufferedBytes === 0
-            && $this->state === StreamingResponseStreamState::OPEN
+            && $this->state === BodyStreamState::OPEN
             && $this->failure === null
         ) {
             $this->awaitReadable();
@@ -350,31 +328,6 @@ final class StreamingResponseStream implements ResponseStreamInterface
     }
 
     /**
-     * Reject hashing an incrementally delivered response.
-     *
-     * @throws \RuntimeException Always.
-     */
-    public function hash(string $algo = 'sha256', bool $raw = false): string
-    {
-        throw new \RuntimeException(
-            'Streamed response bodies cannot be hashed.'
-        );
-    }
-
-    /** @inheritDoc */
-    public function isReplayable(): bool
-    {
-        return false;
-    }
-
-    /** @inheritDoc */
-    public function isAvailable(): bool
-    {
-        return $this->state !== StreamingResponseStreamState::CLOSED
-            && !$this->started;
-    }
-
-    /**
      * Determine whether response bytes have been consumed.
      */
     public function started(): bool
@@ -388,7 +341,7 @@ final class StreamingResponseStream implements ResponseStreamInterface
     public function fullyConsumed(): bool
     {
         return $this->eof()
-            && $this->state !== StreamingResponseStreamState::CLOSED;
+            && $this->state !== BodyStreamState::CLOSED;
     }
 
     /**
@@ -505,7 +458,7 @@ final class StreamingResponseStream implements ResponseStreamInterface
             ): void
             {
                 if ($this->bufferedBytes > 0
-                    || $this->state !== StreamingResponseStreamState::OPEN
+                    || $this->state !== BodyStreamState::OPEN
                     || $this->failure !== null
                 ) {
                     $resume();
@@ -595,7 +548,7 @@ final class StreamingResponseStream implements ResponseStreamInterface
      */
     private function isProducerOpen(): bool
     {
-        return $this->state === StreamingResponseStreamState::OPEN;
+        return $this->state === BodyStreamState::OPEN;
     }
 
     /**
@@ -609,7 +562,7 @@ final class StreamingResponseStream implements ResponseStreamInterface
             return;
         }
 
-        $this->state = StreamingResponseStreamState::ENDED;
+        $this->state = BodyStreamState::ENDED;
         $this->blockedChunkLength = 0;
         $this->onSpaceAvailable = null;
         $this->onClose = null;
@@ -628,7 +581,7 @@ final class StreamingResponseStream implements ResponseStreamInterface
         }
 
         $this->failure = $failure;
-        $this->state = StreamingResponseStreamState::FAILED;
+        $this->state = BodyStreamState::FAILED;
         $this->blockedChunkLength = 0;
         $this->onSpaceAvailable = null;
         $this->onClose = null;
@@ -642,12 +595,12 @@ final class StreamingResponseStream implements ResponseStreamInterface
      */
     private function markClosed(): void
     {
-        if ($this->state === StreamingResponseStreamState::CLOSED) {
+        if ($this->state === BodyStreamState::CLOSED) {
             return;
         }
 
         $producerActive = $this->isProducerOpen();
-        $this->state = StreamingResponseStreamState::CLOSED;
+        $this->state = BodyStreamState::CLOSED;
         $this->blockedChunkLength = 0;
         $this->clearBuffer();
         $this->wakeWaiters();
@@ -680,7 +633,7 @@ final class StreamingResponseStream implements ResponseStreamInterface
      */
     private function ensureReadable(): void
     {
-        if ($this->state === StreamingResponseStreamState::CLOSED) {
+        if ($this->state === BodyStreamState::CLOSED) {
             throw new \RuntimeException(
                 'Streamed response body is closed.'
             );

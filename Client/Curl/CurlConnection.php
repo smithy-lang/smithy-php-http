@@ -11,6 +11,7 @@ namespace Smithy\Http\Client\Curl;
 
 use Smithy\Http\Client\Connection\ConnectionHealthStatus;
 use Smithy\Http\Client\Connection\ConnectionState;
+use Smithy\Http\Client\Connection\ExchangeInterface;
 use Smithy\Http\Client\Connection\HttpConnectionInterface;
 use Smithy\Http\Client\Connection\HttpVersion;
 use Smithy\Http\Client\Connection\RequestContext;
@@ -19,11 +20,14 @@ use Smithy\Http\Client\Connection\RequestContext;
  * Track a cURL easy handle used for HTTP transfers.
  *
  * The cURL multi handle owns libcurl's reusable socket cache. Closing this
- * wrapper closes the easy handle and prevents wrapper reuse.
+ * wrapper closes the easy handle and prevents wrapper reuse. An easy handle
+ * runs one request at a time, so the connection is also its own exchange.
  *
  * @internal
  */
-final class CurlConnection implements HttpConnectionInterface
+final class CurlConnection implements
+    HttpConnectionInterface,
+    ExchangeInterface
 {
     private ConnectionState $state;
     private ConnectionHealthStatus $health = ConnectionHealthStatus::UNKNOWN;
@@ -46,13 +50,16 @@ final class CurlConnection implements HttpConnectionInterface
 
     /**
      * Access the raw cURL handle for transport operations.
-     *
-     * Package-internal: used by CurlExchange and CurlClient
-     * for curl_exec / curl_multi operations.
      */
     public function getHandle(): \CurlHandle
     {
         return $this->handle;
+    }
+
+    /** @inheritDoc */
+    public function getConnection(): HttpConnectionInterface
+    {
+        return $this;
     }
 
     /**
@@ -126,7 +133,9 @@ final class CurlConnection implements HttpConnectionInterface
         return $this->health;
     }
 
-    /** @inheritDoc */
+    /**
+     * Get the HTTP protocol version recorded for this connection.
+     */
     public function httpVersion(): HttpVersion
     {
         return $this->httpVersion;
@@ -138,7 +147,9 @@ final class CurlConnection implements HttpConnectionInterface
         return $this->requestContext;
     }
 
-    /** @inheritDoc */
+    /**
+     * Get the creation timestamp in seconds.
+     */
     public function createdAt(): float
     {
         return $this->createdAt;
@@ -150,7 +161,9 @@ final class CurlConnection implements HttpConnectionInterface
         return $this->lastUsedAt;
     }
 
-    /** @inheritDoc */
+    /**
+     * Get the number of completed requests.
+     */
     public function requestCount(): int
     {
         return $this->requestCount;

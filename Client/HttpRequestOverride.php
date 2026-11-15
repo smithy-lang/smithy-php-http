@@ -18,7 +18,9 @@ use Smithy\Core\Transport\{
 use Smithy\Http\Client\Cancellation\CancellationInterface;
 use Smithy\Http\Message\{
     HttpMessageExchange,
-    HttpTransportRequest
+    HttpMessageValidator,
+    HttpTransportRequest,
+    Request
 };
 
 /**
@@ -29,15 +31,32 @@ final readonly class HttpRequestOverride implements
 {
     public const KEY = '@http';
 
+    /** @var array<string, array{0: string, 1: list<string>}> */
+    private array $normalizedHeaders;
+
     /**
      * @param array<string, mixed> $optionOverrides Partial HTTP options.
      * @param array<string, string|list<string>> $headers Request headers.
+     *
+     * @throws \InvalidArgumentException If a header name or value is invalid.
      */
     private function __construct(
         private array $optionOverrides,
         public array $headers,
         public ?HttpRequestOptions $options
-    ) {}
+    )
+    {
+        $normalized = [];
+        foreach ($headers as $name => $values) {
+            HttpMessageValidator::validateHeaderName($name);
+            $normalized[\strtolower($name)] = [
+                $name,
+                HttpMessageValidator::normalizeHeaderValues($values)
+            ];
+        }
+
+        $this->normalizedHeaders = $normalized;
+    }
 
     /**
      * Create an HTTP override from its public request-override value.
@@ -110,7 +129,13 @@ final readonly class HttpRequestOverride implements
 
         $transportRequest = HttpTransportRequest::expect($request);
         $httpRequest = $transportRequest->request;
-        foreach ($this->headers as $name => $values) {
+        if ($httpRequest instanceof Request) {
+            return $transportRequest->withRequest(
+                $httpRequest->withNormalizedHeaders($this->normalizedHeaders)
+            );
+        }
+
+        foreach ($this->normalizedHeaders as [$name, $values]) {
             $httpRequest = $httpRequest->withHeader($name, $values);
         }
 
@@ -349,7 +374,7 @@ final readonly class HttpRequestOverride implements
         ?string $default
     ): ?string
     {
-        if (!isset($options[$name])) {
+        if (!\array_key_exists($name, $options)) {
             return $default;
         }
 
@@ -381,7 +406,7 @@ final readonly class HttpRequestOverride implements
         ?object $default
     ): ?object
     {
-        if (!isset($options[$name])) {
+        if (!\array_key_exists($name, $options)) {
             return $default;
         }
 

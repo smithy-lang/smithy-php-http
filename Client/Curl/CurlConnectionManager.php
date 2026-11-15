@@ -41,7 +41,7 @@ final class CurlConnectionManager implements ConnectionManagerInterface
     private readonly ConnectionManagerConfiguration $configuration;
     private readonly EventLoopInterface $eventLoop;
     /**
-     * FIFO pools of idle easy-handle wrappers, keyed by CacheKey string.
+     * FIFO pools of idle easy-handle wrappers, keyed by RequestContext key.
      *
      * @var array<string, ConnectionPoolInterface>
      */
@@ -99,7 +99,7 @@ final class CurlConnectionManager implements ConnectionManagerInterface
         ?CancellationInterface $cancellation = null
     ): ExchangeInterface
     {
-        $key = (string) $requestContext->cacheKey();
+        $key = $requestContext->key;
         $this->acquirePermit(
             $key,
             $requestContext->host,
@@ -127,7 +127,7 @@ final class CurlConnectionManager implements ConnectionManagerInterface
             $this->connectionGenerations[$connectionId] = $this->generation;
             $this->leasedConnectionIds[$connectionId] = true;
 
-            return new CurlExchange($connection);
+            return $connection;
         } catch (\Throwable $error) {
             $this->releasePermit($key);
 
@@ -143,7 +143,7 @@ final class CurlConnectionManager implements ConnectionManagerInterface
     public function release(ExchangeInterface $exchange): void
     {
         $connection = $exchange->getConnection();
-        $key = (string) $connection->requestContext()->cacheKey();
+        $key = $connection->requestContext()->key;
         $connectionId = \spl_object_id($connection);
         if (!isset($this->leasedConnectionIds[$connectionId])) {
             throw new \LogicException(

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Smithy\Http\Client\Curl;
 
+use Smithy\Http\Message\HttpMessageValidator;
 use Smithy\Http\Message\StreamingResponseStream;
 use Smithy\Http\Message\ResponseTrailers;
 
@@ -23,7 +24,7 @@ final class CurlResponseState
     public string $protocolVersion = '1.1';
     public string $reason = '';
 
-    /** @var array<string, list<string>> Final response headers. */
+    /** @var array<string, array{0: string, 1: list<string>}> Final headers by lowercase name. */
     public array $headers = [];
 
     public bool $headersComplete = false;
@@ -33,12 +34,15 @@ final class CurlResponseState
     public bool $resumeScheduled = false;
     public int $pausedChunkLength = 0;
     public ?\Throwable $bodyWriteError = null;
+
+    /** First invalid response header, thrown when the response is built. */
+    public ?\InvalidArgumentException $headerError = null;
     private int $currentStatus = 0;
     private string $currentProtocolVersion = '1.1';
     private string $currentReason = '';
-    /** @var array<string, list<string>> */
+    /** @var array<string, array{0: string, 1: list<string>}> */
     private array $currentHeaders = [];
-    /** @var array<string, list<string>> */
+    /** @var array<string, array{0: string, 1: list<string>}> */
     private array $trailerHeaders = [];
     private ?float $lastReadActivityAt = null;
     private int $receivedBodyBytes = 0;
@@ -235,11 +239,13 @@ final class CurlResponseState
         $this->recordReadActivity();
         $trimmed = \trim($header);
 
-        if (\preg_match(
-            '/^HTTP\/(\S+)\s+(\d{3})(?:\s+(.*))?$/i',
-            $trimmed,
-            $matches
-        ) === 1) {
+        if (\strncasecmp($trimmed, 'HTTP/', 5) === 0
+            && \preg_match(
+                '/^HTTP\/(\S+)\s+(\d{3})(?:\s+(.*))?$/i',
+                $trimmed,
+                $matches
+            ) === 1
+        ) {
             if ($this->headersComplete) {
                 $this->trailerHeaders = [];
             }
@@ -249,6 +255,7 @@ final class CurlResponseState
             $this->currentStatus = (int) $matches[2];
             $this->currentReason = $matches[3] ?? '';
             $this->currentHeaders = [];
+            $this->headerError = null;
             $this->acceptBody = false;
 
             return false;
@@ -288,6 +295,15 @@ final class CurlResponseState
                 $name,
                 $value
             );
+
+            return false;
+        }
+
+        try {
+            HttpMessageValidator::validateHeaderName($name);
+            HttpMessageValidator::validateHeaderValue($value);
+        } catch (\InvalidArgumentException $error) {
+            $this->headerError ??= $error;
 
             return false;
         }
@@ -371,7 +387,9 @@ final class CurlResponseState
      */
     public function completeTrailers(): void
     {
-        $this->trailers->complete($this->trailerHeaders);
+        $this->trailers->complete(
+            \array_column($this->trailerHeaders, 1, 0)
+        );
     }
 
     /**
@@ -387,7 +405,7 @@ final class CurlResponseState
     /**
      * Append one field while preserving its first observed casing.
      *
-     * @param array<string, list<string>> $headers
+     * @param array<string, array{0: string, 1: list<string>}> $headers
      *
      * @return void
      */
@@ -397,15 +415,12 @@ final class CurlResponseState
         string $value
     ): void
     {
-        foreach ($headers as $headerName => $values) {
-            if (\strcasecmp($headerName, $name) === 0) {
-                $headers[$headerName][] = $value;
-
-                return;
-            }
+        $lower = \strtolower($name);
+        if (isset($headers[$lower])) {
+            $headers[$lower][1][] = $value;
+        } else {
+            $headers[$lower] = [$name, [$value]];
         }
-
-        $headers[$name] = [$value];
     }
 
     /**
@@ -423,8 +438,10 @@ final class CurlResponseState
             return;
         }
 
-        $this->removeHeader($this->headers, 'Content-Encoding');
-        $this->removeHeader($this->headers, 'Content-Length');
+        unset(
+            $this->headers['content-encoding'],
+            $this->headers['content-length']
+        );
     }
 
     /**
@@ -445,22 +462,14 @@ final class CurlResponseState
      */
     private function hasNonIdentityContentEncoding(): bool
     {
-        foreach ($this->headers as $name => $values) {
-            if (\strcasecmp($name, 'Content-Encoding') !== 0) {
-                continue;
-            }
-
-            foreach ($values as $value) {
-                foreach (\explode(',', $value) as $coding) {
-                    $coding = \trim($coding);
-                    if ($coding !== ''
-                        && \strcasecmp(
-                            $coding,
-                            'identity'
-                        ) !== 0
-                    ) {
-                        return true;
-                    }
+        $values = $this->headers['content-encoding'][1] ?? [];
+        foreach ($values as $value) {
+            foreach (\explode(',', $value) as $coding) {
+                $coding = \trim($coding);
+                if ($coding !== ''
+                    && \strcasecmp($coding, 'identity') !== 0
+                ) {
+                    return true;
                 }
             }
         }
@@ -469,55 +478,31 @@ final class CurlResponseState
     }
 
     /**
-     * Remove a header by lowercase field name.
-     *
-     * @param array<string, list<string>> $headers
-     *
-     * @return void
-     */
-    private function removeHeader(array &$headers, string $name): void
-    {
-        foreach (\array_keys($headers) as $headerName) {
-            if (\strcasecmp($headerName, $name) === 0) {
-                unset($headers[$headerName]);
-            }
-        }
-    }
-
-    /**
      * Get an unambiguous final Content-Length value.
      */
     private function responseContentLength(): ?int
     {
-        foreach ($this->headers as $name => $values) {
-            if (\strcasecmp($name, 'Content-Length') !== 0) {
-                continue;
-            }
-
-            if (\count($values) !== 1) {
-                return null;
-            }
-
-            $value = \trim($values[0]);
-            if (\preg_match('/^(?:0|[1-9][0-9]*)$/', $value) !== 1
-            ) {
-                return null;
-            }
-
-            $maximum = (string) \PHP_INT_MAX;
-            if (\strlen($value) > \strlen($maximum)
-                || (
-                    \strlen($value) === \strlen($maximum)
-                    && \strcmp($value, $maximum) > 0
-                )
-            ) {
-                return null;
-            }
-
-            return (int) $value;
+        $values = $this->headers['content-length'][1] ?? null;
+        if ($values === null || \count($values) !== 1) {
+            return null;
         }
 
-        return null;
+        $value = \trim($values[0]);
+        if (\preg_match('/^(?:0|[1-9][0-9]*)$/', $value) !== 1) {
+            return null;
+        }
+
+        $maximum = (string) \PHP_INT_MAX;
+        if (\strlen($value) > \strlen($maximum)
+            || (
+                \strlen($value) === \strlen($maximum)
+                && \strcmp($value, $maximum) > 0
+            )
+        ) {
+            return null;
+        }
+
+        return (int) $value;
     }
 
     /**

@@ -29,8 +29,7 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
     private int $bufferedBytes = 0;
     private int $position = 0;
     private bool $started = false;
-    private AsyncRequestStreamState $state =
-        AsyncRequestStreamState::OPEN;
+    private BodyStreamState $state = BodyStreamState::OPEN;
     private bool $discarded = false;
     private bool $consumerDetached = false;
     private ?\Throwable $failure = null;
@@ -138,8 +137,8 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
     public function eof(): bool
     {
         return (
-                $this->state === AsyncRequestStreamState::ENDED
-                || $this->state === AsyncRequestStreamState::CLOSED
+                $this->state === BodyStreamState::ENDED
+                || $this->state === BodyStreamState::CLOSED
             )
             && $this->failure === null
             && $this->bufferedBytes === 0;
@@ -248,7 +247,7 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
      */
     public function isReadable(): bool
     {
-        return $this->state !== AsyncRequestStreamState::CLOSED;
+        return $this->state !== BodyStreamState::CLOSED;
     }
 
     /**
@@ -373,7 +372,7 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
     /** @inheritDoc */
     public function isAvailable(): bool
     {
-        return $this->state !== AsyncRequestStreamState::CLOSED
+        return $this->state !== BodyStreamState::CLOSED
             && !$this->started
             && $this->failure === null;
     }
@@ -408,8 +407,8 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
     public function isReady(): bool
     {
         return $this->bufferedBytes > 0
-            || $this->state === AsyncRequestStreamState::ENDED
-            || $this->state === AsyncRequestStreamState::CLOSED
+            || $this->state === BodyStreamState::ENDED
+            || $this->state === BodyStreamState::CLOSED
             || $this->failure !== null;
     }
 
@@ -508,7 +507,7 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
      */
     public function end(): void
     {
-        if ($this->state !== AsyncRequestStreamState::OPEN) {
+        if ($this->state !== BodyStreamState::OPEN) {
             return;
         }
 
@@ -544,7 +543,7 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
      */
     private function isProducerOpen(): bool
     {
-        return $this->state === AsyncRequestStreamState::OPEN
+        return $this->state === BodyStreamState::OPEN
             && !$this->consumerDetached;
     }
 
@@ -555,12 +554,12 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
      */
     private function markEnded(): void
     {
-        if ($this->state !== AsyncRequestStreamState::OPEN) {
+        if ($this->state !== BodyStreamState::OPEN) {
             return;
         }
 
         $wasReady = $this->isReady();
-        $this->state = AsyncRequestStreamState::ENDED;
+        $this->state = BodyStreamState::ENDED;
         $this->finishNotifications($wasReady);
         $this->scheduleWriterResume();
     }
@@ -572,13 +571,13 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
      */
     private function markFailed(\Throwable $failure): void
     {
-        if ($this->state !== AsyncRequestStreamState::OPEN) {
+        if ($this->state !== BodyStreamState::OPEN) {
             return;
         }
 
         $wasReady = $this->isReady();
         $this->failure = $failure;
-        $this->state = AsyncRequestStreamState::FAILED;
+        $this->state = BodyStreamState::FAILED;
         $this->finishNotifications($wasReady);
         $this->scheduleWriterResume();
     }
@@ -590,12 +589,12 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
      */
     private function markClosed(): void
     {
-        if ($this->state === AsyncRequestStreamState::CLOSED) {
+        if ($this->state === BodyStreamState::CLOSED) {
             return;
         }
 
         $wasReady = $this->isReady();
-        if ($this->state !== AsyncRequestStreamState::ENDED
+        if ($this->state !== BodyStreamState::ENDED
             || $this->bufferedBytes > 0
         ) {
             $this->discarded = true;
@@ -606,7 +605,7 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
         $this->currentChunk = null;
         $this->currentChunkOffset = 0;
         $this->bufferedBytes = 0;
-        $this->state = AsyncRequestStreamState::CLOSED;
+        $this->state = BodyStreamState::CLOSED;
         $this->finishNotifications($wasReady);
         $this->scheduleWriterResume();
     }
@@ -659,7 +658,7 @@ final class AsyncRequestStream implements AsyncRequestStreamInterface
      */
     private function ensureReadable(): void
     {
-        if ($this->state === AsyncRequestStreamState::CLOSED) {
+        if ($this->state === BodyStreamState::CLOSED) {
             throw new \RuntimeException('Async request stream is closed.');
         }
     }

@@ -19,12 +19,17 @@ final class StringRequestStream implements RequestStreamInterface
     private int $offset = 0;
     private ?int $length = null;
     private bool $started = false;
-    private bool $fullyConsumed = false;
+    private bool $fullyConsumed;
 
     /**
      * Create a string-backed stream.
+     *
+     * An empty stream starts fully consumed, so the shared empty instance never changes state.
      */
-    public function __construct(private readonly string $content) {}
+    public function __construct(private readonly string $content)
+    {
+        $this->fullyConsumed = $content === '';
+    }
 
     /**
      * Get the shared empty stream instance.
@@ -178,6 +183,12 @@ final class StringRequestStream implements RequestStreamInterface
      */
     public function read(int $length): string
     {
+        if ($length < 0) {
+            throw new \InvalidArgumentException(
+                'Read length must be non-negative.'
+            );
+        }
+
         $data = \substr($this->content, $this->offset, $length);
         if ($data !== '') {
             $this->started = true;

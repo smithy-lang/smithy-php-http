@@ -33,7 +33,7 @@ final class PendingRequest
     private ?\Closure $throw;
 
     public function __construct(
-        public readonly CurlExchange $exchange,
+        public readonly CurlConnection $exchange,
         public readonly RequestInterface $request,
         \Closure $resume,
         \Closure $throw,

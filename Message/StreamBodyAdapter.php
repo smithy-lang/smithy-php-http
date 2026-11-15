@@ -239,10 +239,6 @@ final class StreamBodyAdapter implements RequestStreamInterface
      */
     public function hash(string $algo = 'sha256', bool $raw = false): string
     {
-        if ($this->inner instanceof RequestStreamInterface) {
-            return $this->inner->hash($algo, $raw);
-        }
-
         if (!$this->inner->isSeekable()) {
             throw new \RuntimeException(
                 'Cannot hash a non-seekable generic stream.'
@@ -272,9 +268,7 @@ final class StreamBodyAdapter implements RequestStreamInterface
      */
     public function isReplayable(): bool
     {
-        return $this->inner instanceof RequestStreamInterface
-            ? $this->inner->isReplayable()
-            : $this->inner->isSeekable();
+        return $this->inner->isSeekable();
     }
 
     /**
@@ -282,9 +276,7 @@ final class StreamBodyAdapter implements RequestStreamInterface
      */
     public function isAvailable(): bool
     {
-        return $this->inner instanceof RequestStreamInterface
-            ? $this->inner->isAvailable()
-            : !$this->started || $this->inner->isSeekable();
+        return !$this->started || $this->inner->isSeekable();
     }
 
     /**

@@ -16,12 +16,7 @@ namespace Smithy\Http\Client\Connection;
  */
 final class FifoConnectionPool implements ConnectionPoolInterface
 {
-    /**
-     * @var \SplQueue<array{
-     *     connection: HttpConnectionInterface,
-     *     returnedAt: float
-     * }>
-     */
+    /** @var \SplQueue<HttpConnectionInterface> */
     private \SplQueue $queue;
 
     private int $size = 0;
@@ -38,44 +33,31 @@ final class FifoConnectionPool implements ConnectionPoolInterface
             return null;
         }
 
-        $entry = $this->queue->dequeue();
         $this->size--;
 
-        return $entry['connection'];
+        return $this->queue->dequeue();
     }
 
     /** @inheritDoc */
     public function offerLast(HttpConnectionInterface $connection): void
     {
-        $this->queue->enqueue([
-            'connection' => $connection,
-            'returnedAt' => \microtime(true)
-        ]);
+        $this->queue->enqueue($connection);
         $this->size++;
     }
 
     /** @inheritDoc */
     public function remove(HttpConnectionInterface $connection): bool
     {
-        $newQueue = new \SplQueue();
-        $found = false;
-
-        while (!$this->queue->isEmpty()) {
-            $entry = $this->queue->dequeue();
-
-            if (!$found && $entry['connection'] === $connection) {
-                $found = true;
+        foreach ($this->queue as $index => $queued) {
+            if ($queued === $connection) {
+                $this->queue->offsetUnset($index);
                 $this->size--;
 
-                continue;
+                return true;
             }
-
-            $newQueue->enqueue($entry);
         }
 
-        $this->queue = $newQueue;
-
-        return $found;
+        return false;
     }
 
     /** @inheritDoc */
@@ -90,27 +72,29 @@ final class FifoConnectionPool implements ConnectionPoolInterface
         return $this->size === 0;
     }
 
-    /** @inheritDoc */
+    /**
+     * Remove and close connections idle longer than the timeout.
+     *
+     * Uses the same lastUsedAt() clock as the connection manager.
+     *
+     * @return list<HttpConnectionInterface>
+     */
     public function prune(float $idleTimeout): array
     {
         $now = \microtime(true);
         $pruned = [];
-        $newQueue = new \SplQueue();
 
-        while (!$this->queue->isEmpty()) {
-            $entry = $this->queue->dequeue();
+        for ($remaining = $this->size; $remaining > 0; $remaining--) {
+            $connection = $this->queue->dequeue();
 
-            if (($now - $entry['returnedAt']) > $idleTimeout) {
-                $connection = $entry['connection'];
+            if (($now - $connection->lastUsedAt()) > $idleTimeout) {
                 $connection->close();
                 $pruned[] = $connection;
                 $this->size--;
             } else {
-                $newQueue->enqueue($entry);
+                $this->queue->enqueue($connection);
             }
         }
-
-        $this->queue = $newQueue;
 
         return $pruned;
     }
@@ -119,8 +103,7 @@ final class FifoConnectionPool implements ConnectionPoolInterface
     public function clear(): void
     {
         while (!$this->queue->isEmpty()) {
-            $entry = $this->queue->dequeue();
-            $entry['connection']->close();
+            $this->queue->dequeue()->close();
         }
 
         $this->size = 0;

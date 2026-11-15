@@ -208,4 +208,12 @@ final class Request implements RequestInterface
         // Host header must be first per PSR-7 convention.
         $this->headers = ['host' => ['Host', $values]] + $this->headers;
     }
+
+    /**
+     * Wrap request bodies in the request stream contract.
+     */
+    private function normalizeBody(StreamInterface $body): StreamInterface
+    {
+        return StreamBodyAdapter::wrap($body);
+    }
 }

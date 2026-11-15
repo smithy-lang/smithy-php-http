@@ -239,11 +239,6 @@ types for request and transport failures:
 consumed, and whether it was seekable. Retry policies can use this state to
 decide whether sending the request again is safe.
 
-## Configuration Assembly
-
-`HttpClientConfiguration` groups connection manager settings, connection
-settings, and default request options for generated client assembly.
-
 ## Dependencies
 
 The client depends on `smithy/async`, `psr/http-client`,

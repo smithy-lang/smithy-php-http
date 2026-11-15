@@ -10,19 +10,19 @@ declare(strict_types=1);
 namespace Smithy\Http\Message;
 
 /**
- * Lifecycle state for an asynchronous request stream.
+ * Lifecycle state for an asynchronous request or streaming response body.
  *
  * @internal
  */
-enum AsyncRequestStreamState
+enum BodyStreamState
 {
-    /** Producer may write and consumer may read. */
+    /** Producer may append and consumer may read. */
     case OPEN;
 
-    /** Producer ended normally; buffered bytes may still be read. */
+    /** Producer ended normally. Buffered bytes may still be read. */
     case ENDED;
 
-    /** Producer failed; reads observe the stored failure. */
+    /** Producer failed. Reads end with the stored failure. */
     case FAILED;
 
     /** Stream was closed and buffered bytes were discarded. */

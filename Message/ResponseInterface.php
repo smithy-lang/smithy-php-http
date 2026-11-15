@@ -25,4 +25,11 @@ interface ResponseInterface extends \Psr\Http\Message\ResponseInterface
      * Get the shared response trailer state.
      */
     public function getTrailers(): ResponseTrailers;
+
+    /**
+     * Get headers as [lowercase name => [original name, values]].
+     *
+     * @return array<string, array{0: string, 1: list<string>}>
+     */
+    public function getRawHeaders(): array;
 }

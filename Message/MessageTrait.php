@@ -120,7 +120,7 @@ trait MessageTrait
     public function withHeader(string $name, $value): static
     {
         HttpMessageValidator::validateHeaderName($name);
-        $values = $this->normalizeHeaderValue($value);
+        $values = HttpMessageValidator::normalizeHeaderValues($value);
 
         $new = clone $this;
         $lower = \strtolower($name);
@@ -135,7 +135,7 @@ trait MessageTrait
     public function withAddedHeader(string $name, $value): static
     {
         HttpMessageValidator::validateHeaderName($name);
-        $values = $this->normalizeHeaderValue($value);
+        $values = HttpMessageValidator::normalizeHeaderValues($value);
 
         $new = clone $this;
         $lower = \strtolower($name);
@@ -222,7 +222,7 @@ trait MessageTrait
      */
     public function withBody(StreamInterface $body): static
     {
-        $normalized = StreamBodyAdapter::wrap($body);
+        $normalized = $this->normalizeBody($body);
         if ($normalized === $this->body) {
             return $this;
         }
@@ -249,18 +249,15 @@ trait MessageTrait
 
             HttpMessageValidator::validateHeaderName($name);
             $lower = \strtolower($name);
-            $values = $this->normalizeHeaderValue($value);
+            $values = HttpMessageValidator::normalizeHeaderValues($value);
             $this->headers[$lower] = [$name, $values];
         }
     }
 
     /**
-     * Normalize a header value to an array of strings.
-     *
-     * @return list<string>
+     * Normalize a body passed to withBody() for this message type.
      */
-    private function normalizeHeaderValue(mixed $value): array
-    {
-        return HttpMessageValidator::normalizeHeaderValues($value);
-    }
+    abstract private function normalizeBody(
+        StreamInterface $body
+    ): StreamInterface;
 }

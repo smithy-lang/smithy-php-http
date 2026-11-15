@@ -130,14 +130,12 @@ final class Response implements ResponseInterface
                 : $this->setHeaders($headers);
         }
 
-        if ($body instanceof ResponseStreamInterface) {
-            $this->body = $body;
-        } elseif ($body instanceof StreamInterface) {
+        if ($body instanceof StreamInterface) {
             $this->body = $body;
         } elseif (\is_string($body) && $body !== '') {
-            $this->body = Stream::create($body);
+            $this->body = new StringResponseStream($body);
         } else {
-            $this->body = Stream::empty();
+            $this->body = StringResponseStream::empty();
         }
     }
 
@@ -224,5 +222,13 @@ final class Response implements ResponseInterface
     public function getTrailers(): ResponseTrailers
     {
         return $this->trailers;
+    }
+
+    /**
+     * Store response bodies as given, the same as the constructor.
+     */
+    private function normalizeBody(StreamInterface $body): StreamInterface
+    {
+        return $body;
     }
 }

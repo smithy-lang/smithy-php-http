@@ -56,27 +56,12 @@ interface HttpConnectionInterface
     public function markUnhealthy(): void;
 
     /**
-     * The HTTP protocol version negotiated on this connection.
-     */
-    public function httpVersion(): HttpVersion;
-
-    /**
      * The request context (host, port, scheme, proxy) for this connection.
      */
     public function requestContext(): RequestContext;
 
     /**
-     * Timestamp (microtime) when this connection was created.
-     */
-    public function createdAt(): float;
-
-    /**
      * Timestamp (microtime) when this connection was last used.
      */
     public function lastUsedAt(): float;
-
-    /**
-     * Number of requests completed on this connection.
-     */
-    public function requestCount(): int;
 }

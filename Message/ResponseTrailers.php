@@ -14,6 +14,8 @@ namespace Smithy\Http\Message;
  */
 final class ResponseTrailers
 {
+    private static ?self $none = null;
+
     /** @var array<string, array{0: string, 1: list<string>}> */
     private array $headers = [];
     private bool $complete;
@@ -37,10 +39,16 @@ final class ResponseTrailers
     /**
      * Create completed response trailers.
      *
+     * Calls without headers share one instance. Completed trailers never change.
+     *
      * @param array<string, string|list<string>> $headers
      */
     public static function completed(array $headers = []): self
     {
+        if ($headers === []) {
+            return self::$none ??= new self(true);
+        }
+
         $trailers = new self(false);
         $trailers->complete($headers);
 

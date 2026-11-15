@@ -18,12 +18,19 @@ namespace Smithy\Http\Client\Connection;
  */
 final class RequestContext
 {
+    /** Pool key, such as "scheme://host:port" or "scheme://host:port|proxy=uri". */
+    public readonly string $key;
+
     public function __construct(
         public readonly string $scheme,
         public readonly string $host,
         public readonly int $port,
         public readonly ?string $proxy = null
-    ) {}
+    )
+    {
+        $key = "{$scheme}://{$host}:{$port}";
+        $this->key = $proxy === null ? $key : "{$key}|proxy={$proxy}";
+    }
 
     /**
      * Create from a PSR-7 URI and optional proxy URL.
@@ -40,17 +47,6 @@ final class RequestContext
             host: $uri->getHost(),
             port: self::resolvePort($scheme, $uri->getPort()),
             proxy: $proxy
-        );
-    }
-
-    /**
-     * Derive the CacheKey for pool lookups.
-     */
-    public function cacheKey(): CacheKey
-    {
-        return new CacheKey(
-            target: "{$this->scheme}://{$this->host}:{$this->port}",
-            proxy: $this->proxy
         );
     }
 

@@ -11,6 +11,7 @@ namespace Smithy\Http\Client;
 
 use Psr\Http\Message\RequestInterface;
 use Smithy\Async\EventLoopInterface;
+use Smithy\Async\RevoltEventLoop;
 use Smithy\Http\Client\Cancellation\CancellationInterface;
 use Smithy\Http\Client\Cancellation\CancelledException;
 use Smithy\Http\Client\Connection\ConnectionManagerInterface;
@@ -19,8 +20,8 @@ use Smithy\Http\Client\Configuration\ConnectConfiguration;
 use Smithy\Http\Client\Configuration\HTTPVersionPolicy;
 use Smithy\Http\Client\Connection\RequestContext;
 use Smithy\Http\Client\Curl\{
+    CurlConnection,
     CurlConnectionManager,
-    CurlExchange,
     CurlResponseState,
     CurlTransferException,
     PendingRequest
@@ -37,13 +38,14 @@ use Smithy\Http\Message\Response;
 use Smithy\Http\Message\StreamingResponseStream;
 use Smithy\Http\Message\ResponseInterface;
 use Smithy\Http\Message\StreamBodyAdapter;
+use Smithy\Http\Message\StringResponseStream;
 
 /**
  * Send HTTP requests through cURL.
  *
  * Uses one shared curl_multi handle and suspends fibers during I/O.
  */
-final class CurlClient extends AbstractHttpClient
+final class CurlClient implements HttpClientInterface
 {
     private const MIN_POLL_INTERVAL = 0.001;
     private const MAX_POLL_INTERVAL = 0.01;
@@ -53,16 +55,25 @@ final class CurlClient extends AbstractHttpClient
     private const SCAN_DOWNLOAD_PROGRESS = 1;
     private const SCAN_UPLOAD_PROGRESS = 2;
     private const SCAN_PRETRANSFER = 4;
+    private const MAX_CACHED_REQUEST_CONTEXTS = 64;
 
+    private readonly EventLoopInterface $eventLoop;
+    private readonly HttpRequestOptions $defaultOptions;
     private readonly ConnectionManagerInterface $connectionManager;
     private readonly ConnectConfiguration $connectConfig;
     private \CurlMultiHandle $multiHandle;
+
+    /** @var array<string, RequestContext> Contexts by destination and proxy. */
+    private array $requestContexts = [];
 
     /** @var array<int, PendingRequest> */
     private array $pending = [];
 
     /** @var array<int, int> */
     private array $progressScanMasks = [];
+
+    /** @var array<int, true> Handles whose streamed response awaits delivery. */
+    private array $streamReady = [];
     private bool $callbackActivityObserved = false;
     private bool $pollScheduled = false;
     private bool $polling = false;
@@ -98,10 +109,8 @@ final class CurlClient extends AbstractHttpClient
             );
         }
 
-        parent::__construct(
-            eventLoop: $eventLoop,
-            defaultOptions: $defaultOptions
-        );
+        $this->eventLoop = $eventLoop ?? new RevoltEventLoop();
+        $this->defaultOptions = $defaultOptions ?? new HttpRequestOptions();
 
         $this->connectionManager = $connectionManager
             ?? new CurlConnectionManager(eventLoop: $this->eventLoop);
@@ -191,10 +200,22 @@ final class CurlClient extends AbstractHttpClient
             $request,
             $options->cancellation
         );
-        $requestContext = RequestContext::fromUri(
-            $request->getUri(),
-            $options->proxy
-        );
+        $uri = $request->getUri();
+        $proxy = $options->proxy;
+        $contextKey = $uri->getScheme() . '://' . $uri->getHost() . ':'
+            . $uri->getPort() . ($proxy === null ? '' : '|' . $proxy);
+        $requestContext = $this->requestContexts[$contextKey] ?? null;
+        if ($requestContext === null) {
+            // shortcut: reset at a fixed size, use an LRU if hosts churn.
+            if (\count($this->requestContexts)
+                >= self::MAX_CACHED_REQUEST_CONTEXTS
+            ) {
+                $this->requestContexts = [];
+            }
+
+            $requestContext = RequestContext::fromUri($uri, $proxy);
+            $this->requestContexts[$contextKey] = $requestContext;
+        }
 
         try {
             $exchange = $this->connectionManager->lease(
@@ -224,7 +245,7 @@ final class CurlClient extends AbstractHttpClient
             );
         }
 
-        if (!$exchange instanceof CurlExchange) {
+        if (!$exchange instanceof CurlConnection) {
             $releaseError = null;
 
             try {
@@ -234,7 +255,7 @@ final class CurlClient extends AbstractHttpClient
             }
 
             throw new \LogicException(
-                'CurlClient requires CurlExchange instances.',
+                'CurlClient requires CurlConnection exchanges.',
                 0,
                 $releaseError
             );
@@ -899,6 +920,7 @@ final class CurlClient extends AbstractHttpClient
                                             $options
                                         )
                                 );
+                            $this->streamReady[$handleId] = true;
                             $scanMask =
                                 $this->progressScanMasks[$handleId]
                                     ?? 0;
@@ -1078,7 +1100,6 @@ final class CurlClient extends AbstractHttpClient
             );
 
             if (!\is_string($result)
-                && !$result instanceof RequestStreamInterface
                 && !$result instanceof ResponseInterface
             ) {
                 throw new \LogicException(
@@ -1090,13 +1111,19 @@ final class CurlClient extends AbstractHttpClient
                 return $result;
             }
 
-            return new Response(
-                status: $responseState->status,
-                headers: $responseState->headers,
-                body: $result,
-                protocolVersion: $responseState->protocolVersion,
-                reason: $responseState->reason,
-                trailers: $responseState->trailers()
+            if ($responseState->headerError !== null) {
+                throw $responseState->headerError;
+            }
+
+            return Response::fromNormalized(
+                $responseState->status,
+                $responseState->headers,
+                $result === ''
+                    ? StringResponseStream::empty()
+                    : new StringResponseStream($result),
+                $responseState->protocolVersion,
+                $responseState->reason,
+                $responseState->trailers()
             );
         } catch (\Throwable $error) {
             $transferError = $error;
@@ -1128,6 +1155,22 @@ final class CurlClient extends AbstractHttpClient
     }
 
     /**
+     * Access the event loop.
+     */
+    public function getEventLoop(): EventLoopInterface
+    {
+        return $this->eventLoop;
+    }
+
+    /**
+     * Return default request options.
+     */
+    public function getDefaultRequestOptions(): HttpRequestOptions
+    {
+        return $this->defaultOptions;
+    }
+
+    /**
      * @inheritDoc
      */
     public function close(): void
@@ -1144,9 +1187,7 @@ final class CurlClient extends AbstractHttpClient
             $pending = $this->takePendingRequest($handleId);
             if ($pending !== null) {
                 $uploadBody = $pending->uploadState?->body;
-                $pending->exchange
-                    ->getCurlConnection()
-                    ->markUnhealthy();
+                $pending->exchange->markUnhealthy();
                 $this->failPendingRequest(
                     $pending,
                     new NetworkException(
@@ -1557,7 +1598,7 @@ final class CurlClient extends AbstractHttpClient
                 continue;
             }
 
-            $connection = $pending->exchange->getCurlConnection();
+            $connection = $pending->exchange;
             $httpVersion =
                 self::httpVersionFromResponseState($responseState)
                     ?? self::httpVersionFromCurlInfo($completedHandle);
@@ -1626,9 +1667,15 @@ final class CurlClient extends AbstractHttpClient
      */
     private function deliverStreamedResponses(): bool
     {
-        $madeProgress = false;
+        if ($this->streamReady === []) {
+            return false;
+        }
 
-        foreach (\array_keys($this->pending) as $handleId) {
+        $madeProgress = false;
+        $ready = $this->streamReady;
+        $this->streamReady = [];
+
+        foreach ($ready as $handleId => $_) {
             $pending = $this->pending[$handleId] ?? null;
             if ($pending === null
                 || !$pending->responseState
@@ -1743,13 +1790,11 @@ final class CurlClient extends AbstractHttpClient
                                 $now
                             )
                         ) {
-                            $expired[$handleId] = 'read';
+                            $expired[] = $handleId;
                         }
                     }
 
-                    foreach ($expired
-                        as $handleId => $timeoutType
-                    ) {
+                    foreach ($expired as $handleId) {
                         $pending = $this->takePendingRequest(
                             $handleId
                         );
@@ -1757,15 +1802,9 @@ final class CurlClient extends AbstractHttpClient
                             continue;
                         }
 
-                        $message =
-                            $timeoutType === 'request'
-                                ? 'HTTP request timed out before '
-                                    . 'response headers were '
-                                    . 'received.'
-                                : 'HTTP response read timed out '
-                                    . 'after '
-                                    . "{$pending->options->readTimeout} "
-                                    . 'seconds of inactivity.';
+                        $message = 'HTTP response read timed out after '
+                            . "{$pending->options->readTimeout} "
+                            . 'seconds of inactivity.';
                         $uploadBody =
                             $pending->uploadState?->body;
                         $this->failPendingRequest(
@@ -1822,25 +1861,13 @@ final class CurlClient extends AbstractHttpClient
         PendingRequest $pending
     ): ?float
     {
-        $options = $pending->options;
         $responseState = $pending->responseState;
-        $deadline = null;
 
-        if (!$responseState->paused) {
-            $readDeadline = $responseState->readTimeoutDeadline(
-                $options->readTimeout
+        return $responseState->paused
+            ? null
+            : $responseState->readTimeoutDeadline(
+                $pending->options->readTimeout
             );
-            if ($readDeadline !== null
-                && (
-                    $deadline === null
-                    || $readDeadline < $deadline
-                )
-            ) {
-                $deadline = $readDeadline;
-            }
-        }
-
-        return $deadline;
     }
 
     /**
@@ -1867,6 +1894,7 @@ final class CurlClient extends AbstractHttpClient
 
         unset($this->pending[$handleId]);
         unset($this->progressScanMasks[$handleId]);
+        unset($this->streamReady[$handleId]);
 
         if ($pending->cancellation !== null
             && $pending->cancellationSubscription !== null
@@ -1890,7 +1918,7 @@ final class CurlClient extends AbstractHttpClient
         \Throwable $error
     ): void
     {
-        $pending->exchange->getCurlConnection()->markUnhealthy();
+        $pending->exchange->markUnhealthy();
         $responseState = $pending->responseState;
         $responseDelivered = $responseState->responseDelivered;
         $responseBody = $responseState->body();
@@ -1910,7 +1938,7 @@ final class CurlClient extends AbstractHttpClient
      * Clean up setup state and release an exchange.
      */
     private function cleanupExchange(
-        CurlExchange $exchange,
+        CurlConnection $exchange,
         RequestInterface $request,
         ?UploadState $uploadState
     ): ?HttpException
@@ -1926,7 +1954,7 @@ final class CurlClient extends AbstractHttpClient
                 $error,
                 $uploadState
             );
-            $exchange->getCurlConnection()->markUnhealthy();
+            $exchange->markUnhealthy();
         }
 
         try {
@@ -1938,7 +1966,7 @@ final class CurlClient extends AbstractHttpClient
                 $error,
                 $uploadState
             );
-            $exchange->getCurlConnection()->markUnhealthy();
+            $exchange->markUnhealthy();
         }
 
         return $cleanupError;
@@ -1968,9 +1996,7 @@ final class CurlClient extends AbstractHttpClient
                 $error,
                 $pending->uploadState
             );
-            $pending->exchange
-                ->getCurlConnection()
-                ->markUnhealthy();
+            $pending->exchange->markUnhealthy();
         }
 
         try {
@@ -1991,9 +2017,7 @@ final class CurlClient extends AbstractHttpClient
                 $error,
                 $pending->uploadState
             );
-            $pending->exchange
-                ->getCurlConnection()
-                ->markUnhealthy();
+            $pending->exchange->markUnhealthy();
         }
 
         try {
@@ -2007,9 +2031,7 @@ final class CurlClient extends AbstractHttpClient
                 $error,
                 $pending->uploadState
             );
-            $pending->exchange
-                ->getCurlConnection()
-                ->markUnhealthy();
+            $pending->exchange->markUnhealthy();
         }
 
         return $cleanupError;
@@ -2502,13 +2524,17 @@ final class CurlClient extends AbstractHttpClient
             );
         }
 
-        $response = new Response(
-            status: $responseState->status,
-            headers: $responseState->headers,
-            body: $body,
-            protocolVersion: $responseState->protocolVersion,
-            reason: $responseState->reason,
-            trailers: $responseState->trailers()
+        if ($responseState->headerError !== null) {
+            throw $responseState->headerError;
+        }
+
+        $response = Response::fromNormalized(
+            $responseState->status,
+            $responseState->headers,
+            $body,
+            $responseState->protocolVersion,
+            $responseState->reason,
+            $responseState->trailers()
         );
         $responseState->releaseBodyOwnership();
 

@@ -19,7 +19,7 @@ use Smithy\Http\Client\Exception\ConnectionAcquireTimeoutException;
  * Manage the lifecycle of HTTP connections.
  *
  * Leases protocol-agnostic exchanges and enforces connection concurrency.
- * Idle connections are pooled in FIFO order by CacheKey.
+ * Idle connections are pooled in FIFO order by RequestContext key.
  */
 interface ConnectionManagerInterface
 {
