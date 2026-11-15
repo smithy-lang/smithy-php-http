@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Smithy\Http\Client\Curl;
 
+use Smithy\Async\Async;
 use Smithy\Async\EventLoopInterface;
-use Smithy\Async\RevoltEventLoop;
 use Smithy\Http\Client\Cancellation\CancellationInterface;
 use Smithy\Http\Client\Cancellation\CancelledException;
 use Smithy\Http\Client\Configuration\ConnectConfiguration;
@@ -84,7 +84,7 @@ final class CurlConnectionManager implements ConnectionManagerInterface
         $this->configuration = $configuration;
         $this->connectionFactory = $connectionFactory
             ?? new CurlConnectionFactory();
-        $this->eventLoop = $eventLoop ?? new RevoltEventLoop();
+        $this->eventLoop = $eventLoop ?? Async::eventLoop();
     }
 
     /**

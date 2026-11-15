@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Smithy\Http\Client;
 
+use Smithy\Async\Async;
 use Smithy\Async\EventLoopInterface;
-use Smithy\Async\RevoltEventLoop;
 
 /**
  * Provide shared behavior for HTTP client implementations.
@@ -32,7 +32,7 @@ abstract class AbstractHttpClient implements HttpClientInterface
         ?HttpRequestOptions $defaultOptions = null
     )
     {
-        $this->eventLoop = $eventLoop ?? new RevoltEventLoop();
+        $this->eventLoop = $eventLoop ?? Async::eventLoop();
         $this->defaultOptions = $defaultOptions ?? new HttpRequestOptions();
     }
 

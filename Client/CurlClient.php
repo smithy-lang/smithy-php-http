@@ -950,6 +950,9 @@ final class CurlClient extends AbstractHttpClient
 
             $result = null;
             $cancellation = $options->cancellation;
+            // Hand the result back by reference, not through resume().
+            // Revolt keeps the last {main} resume value alive in its loop
+            // fiber, which would pin the response and its exchange.
             $this->eventLoop->suspend(
                 function (
                     callable $resume,
