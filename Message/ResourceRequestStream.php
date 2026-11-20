@@ -242,7 +242,7 @@ final class ResourceRequestStream implements RequestStreamInterface
     /** @inheritDoc */
     public function isSeekable(): bool
     {
-        if (!$this->isAvailable()) {
+        if ($this->resource === null && $this->resourceOpener === null) {
             return false;
         }
 
@@ -324,7 +324,7 @@ final class ResourceRequestStream implements RequestStreamInterface
     /** @inheritDoc */
     public function isWritable(): bool
     {
-        if (!$this->isAvailable()) {
+        if ($this->resource === null && $this->resourceOpener === null) {
             return false;
         }
 
@@ -363,7 +363,7 @@ final class ResourceRequestStream implements RequestStreamInterface
     /** @inheritDoc */
     public function isReadable(): bool
     {
-        if (!$this->isAvailable()) {
+        if ($this->resource === null && $this->resourceOpener === null) {
             return false;
         }
 
@@ -442,7 +442,7 @@ final class ResourceRequestStream implements RequestStreamInterface
     /** @inheritDoc */
     public function getMetadata(?string $key = null)
     {
-        if (!$this->isAvailable()) {
+        if ($this->resource === null && $this->resourceOpener === null) {
             return $key === null ? [] : null;
         }
 
