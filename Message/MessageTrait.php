@@ -186,7 +186,8 @@ trait MessageTrait
         string $lowerName,
         string $originalName,
         array $values
-    ): static {
+    ): static
+    {
         $new = clone $this;
         $new->headers[$lowerName] = [$originalName, $values];
 

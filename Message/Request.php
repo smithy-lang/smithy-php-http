@@ -91,7 +91,8 @@ final class Request implements RequestInterface
         array $headers = [],
         string|StreamInterface|null $body = null,
         string $protocolVersion = '1.1'
-    ): self {
+    ): self
+    {
         return new self(
             $method,
             $uri,
