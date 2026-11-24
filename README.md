@@ -43,7 +43,7 @@ This package builds on `smithy/async`, `smithy/core`, `psr/http-client`, and
 
 ## Design
 
-See [HTTP Runtime Design](../../docs/design/http/http-runtime-design.md).
+See [HTTP Runtime Design](https://github.com/smithy-lang/smithy-php/blob/main/docs/design/http/http-runtime-design.md).
 
 ## Contributing
 

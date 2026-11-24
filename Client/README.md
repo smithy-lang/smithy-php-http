@@ -246,7 +246,7 @@ The client depends on `smithy/async`, `psr/http-client`,
 
 ## Design
 
-See [Curl HTTP Transport Design](../../../docs/design/http/client/curl-http-transport.md).
+See [Curl HTTP Transport Design](https://github.com/smithy-lang/smithy-php/blob/main/docs/design/http/client/curl-http-transport.md).
 
 ## Contributing
 

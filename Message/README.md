@@ -159,7 +159,7 @@ bodies use the `smithy/async` event-loop contract.
 
 ## Design
 
-See [HTTP Messages and Streaming Design](../../../docs/design/http/message/http-messages-and-streaming.md).
+See [HTTP Messages and Streaming Design](https://github.com/smithy-lang/smithy-php/blob/main/docs/design/http/message/http-messages-and-streaming.md).
 
 ## Contributing
 
