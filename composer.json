@@ -2,7 +2,12 @@
     "name": "smithy/http",
     "description": "PSR-7 HTTP messages and a PSR-18 cURL client for Smithy PHP.",
     "type": "library",
+    "homepage": "https://github.com/smithy-lang/smithy-php",
     "license": "Apache-2.0",
+    "support": {
+        "issues": "https://github.com/smithy-lang/smithy-php/issues",
+        "source": "https://github.com/smithy-lang/smithy-php"
+    },
     "require": {
         "ext-ctype": "*",
         "ext-curl": "*",
