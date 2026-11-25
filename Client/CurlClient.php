@@ -509,10 +509,6 @@ final class CurlClient implements HttpClientInterface
                     $uploadBody,
                     $uploadLength
                 );
-                $useNativeReadData = self::canUseNativeReadData(
-                    $uploadState->body
-                );
-
                 $uploadOptions = [CURLOPT_UPLOAD => true];
                 if (\defined('CURLOPT_UPLOAD_BUFFERSIZE')) {
                     $uploadOptions[\constant('CURLOPT_UPLOAD_BUFFERSIZE')] =
@@ -633,7 +629,7 @@ final class CurlClient implements HttpClientInterface
                     );
                 }
 
-                if ($useNativeReadData) {
+                if (self::canUseNativeReadData($uploadState->body)) {
                     \curl_setopt(
                         $handle,
                         CURLOPT_READDATA,
@@ -2254,6 +2250,8 @@ final class CurlClient implements HttpClientInterface
 
     /**
      * Determine whether cURL can read and rewind the body natively.
+     *
+     * @phpstan-assert-if-true ResourceRequestStream $body
      */
     private static function canUseNativeReadData(
         RequestStreamInterface $body
