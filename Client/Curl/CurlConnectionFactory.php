@@ -73,7 +73,7 @@ final class CurlConnectionFactory implements ConnectionFactoryInterface
             self::secondsToCurlMilliseconds($config->connectTimeout)
         );
         \curl_setopt_array($handle, [
-            CURLOPT_TCP_KEEPALIVE => true,
+            CURLOPT_TCP_KEEPALIVE => 1,
             CURLOPT_TCP_KEEPIDLE => 30,
             CURLOPT_TCP_KEEPINTVL => 15
         ]);
