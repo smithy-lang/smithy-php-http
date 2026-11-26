@@ -48,6 +48,7 @@ final class CurlResponseState
     private int $receivedBodyBytes = 0;
     private string $bufferedBody = '';
     private ?StreamingResponseStream $ownedBody;
+    /** @var \WeakReference<StreamingResponseStream>|null */
     private ?\WeakReference $bodyReference = null;
     private readonly ResponseTrailers $trailers;
     private bool $proxyConnectResponseIgnored = false;
