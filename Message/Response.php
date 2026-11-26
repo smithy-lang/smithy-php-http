@@ -94,7 +94,9 @@ final class Response implements ResponseInterface
 
     /**
      * @param int $status HTTP status code
-     * @param array<string, string|string[]> $headers Response headers
+     * @param ($normalizedHeaders is true ? array<string, array{string, list<string>}> : array<string, string|string[]>) $headers
+     *     Response headers, in the normalized internal form when
+     *     `$normalizedHeaders` is true.
      * @param string|StreamInterface|null $body Response body
      * @param string $protocolVersion HTTP protocol version
      * @param string $reason Reason phrase

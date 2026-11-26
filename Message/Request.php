@@ -33,7 +33,9 @@ final class Request implements RequestInterface
      *
      * @param string $method HTTP method (GET, POST, PUT, DELETE, etc.)
      * @param string|UriInterface $uri Request URI
-     * @param array<string, string|string[]> $headers Headers in external form.
+     * @param ($normalizeHeaders is true ? array<string, string|string[]> : array<string, array{string, list<string>}>) $headers
+     *     Headers in external form, or in the normalized internal form when
+     *     `$normalizeHeaders` is false.
      * @param string|StreamInterface|null $body Request body
      * @param string $protocolVersion HTTP protocol version
      * @param bool $normalizeHeaders Whether to validate, trim, and normalize
