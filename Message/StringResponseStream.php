@@ -67,7 +67,7 @@ final class StringResponseStream implements StreamInterface
     /**
      * Get the stream size.
      */
-    public function getSize(): ?int
+    public function getSize(): int
     {
         return \strlen($this->content);
     }

@@ -52,4 +52,11 @@ interface RequestStreamInterface extends StreamInterface
      * Determine whether the request body has been fully consumed.
      */
     public function fullyConsumed(): bool;
+
+    /**
+     * Read up to `$length` bytes and move the stream forward.
+     *
+     * @phpstan-impure
+     */
+    public function read(int $length): string;
 }

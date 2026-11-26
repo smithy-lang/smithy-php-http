@@ -135,7 +135,7 @@ final class CurlClient implements HttpClientInterface
 
         if (\defined('CURLMOPT_MAX_CONCURRENT_STREAMS')) {
             $multiOptions[\constant('CURLMOPT_MAX_CONCURRENT_STREAMS')] =
-                $this->connectConfig->h2Configuration?->maxStreams ?? 100;
+                $this->connectConfig->h2Configuration->maxStreams ?? 100;
         }
 
         if ($this->connectionManager instanceof CurlConnectionManager) {
@@ -565,14 +565,6 @@ final class CurlClient implements HttpClientInterface
                                         $uploadState->paused =
                                             false;
                                         $pause = 0;
-                                        if ($pending
-                                                ->uploadState
-                                                ?->paused
-                                        ) {
-                                            $pause |=
-                                                CURLPAUSE_SEND;
-                                        }
-
                                         if ($pending
                                                 ->responseState
                                                 ->paused

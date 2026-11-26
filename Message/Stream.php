@@ -158,7 +158,7 @@ final class Stream implements StreamInterface
 
         $meta = \stream_get_meta_data($this->resource);
 
-        return $meta['seekable'] ?? false;
+        return $meta['seekable'];
     }
 
     /** @inheritDoc */
@@ -193,7 +193,7 @@ final class Stream implements StreamInterface
         }
 
         $meta = \stream_get_meta_data($this->resource);
-        $mode = $meta['mode'] ?? '';
+        $mode = $meta['mode'];
 
         return \str_contains($mode, 'w')
             || \str_contains($mode, 'a')
@@ -229,7 +229,7 @@ final class Stream implements StreamInterface
         }
 
         $meta = \stream_get_meta_data($this->resource);
-        $mode = $meta['mode'] ?? '';
+        $mode = $meta['mode'];
 
         return \str_contains($mode, 'r') || \str_contains($mode, '+');
     }

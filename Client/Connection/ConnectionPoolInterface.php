@@ -21,6 +21,8 @@ interface ConnectionPoolInterface
      * Retrieve and remove the first (oldest) connection.
      *
      * @return HttpConnectionInterface|null The oldest idle connection.
+     *
+     * @phpstan-impure
      */
     public function getFirst(): ?HttpConnectionInterface;
 

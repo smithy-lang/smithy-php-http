@@ -67,7 +67,7 @@ final class StringRequestStream implements RequestStreamInterface
     /**
      * Get the stream size.
      */
-    public function getSize(): ?int
+    public function getSize(): int
     {
         return $this->length();
     }

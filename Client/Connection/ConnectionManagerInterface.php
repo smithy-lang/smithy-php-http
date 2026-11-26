@@ -14,6 +14,7 @@ use Smithy\Http\Client\Cancellation\CancelledException;
 use Smithy\Http\Client\Configuration\ConnectionManagerConfiguration;
 use Smithy\Http\Client\Configuration\ConnectConfiguration;
 use Smithy\Http\Client\Exception\ConnectionAcquireTimeoutException;
+use Smithy\Http\Client\Exception\HttpException;
 
 /**
  * Manage the lifecycle of HTTP connections.
@@ -38,6 +39,8 @@ interface ConnectionManagerInterface
      *
      * @throws CancelledException If cancellation is requested.
      * @throws ConnectionAcquireTimeoutException On acquisition timeout.
+     * @throws HttpException When the connection cannot be created. Clients
+     *         pass it to the caller unchanged.
      */
     public function lease(
         RequestContext $requestContext,
