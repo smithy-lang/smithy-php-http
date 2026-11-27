@@ -213,9 +213,9 @@ final class ResourceRequestStream implements RequestStreamInterface
     /** @inheritDoc */
     public function tell(): int
     {
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
-        $position = \ftell($this->resource);
+        $position = \ftell($resource);
         if ($position === false) {
             throw new \RuntimeException(
                 'Unable to determine stream position.'
@@ -246,8 +246,8 @@ final class ResourceRequestStream implements RequestStreamInterface
             return false;
         }
 
-        $this->ensureResource();
-        $meta = \stream_get_meta_data($this->resource);
+        $resource = $this->ensureResource();
+        $meta = \stream_get_meta_data($resource);
 
         return $meta['seekable'];
     }
@@ -255,20 +255,20 @@ final class ResourceRequestStream implements RequestStreamInterface
     /** @inheritDoc */
     public function seek(int $offset, int $whence = SEEK_SET): void
     {
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
         if (!$this->isSeekable()) {
             throw new \RuntimeException('Stream is not seekable.');
         }
 
-        if (\fseek($this->resource, $offset, $whence) === -1) {
+        if (\fseek($resource, $offset, $whence) === -1) {
             throw new \RuntimeException(
                 "Unable to seek to position {$offset}."
             );
         }
 
         if (!$this->started) {
-            $position = \ftell($this->resource);
+            $position = \ftell($resource);
             if ($position === false) {
                 throw new \RuntimeException(
                     'Unable to determine stream position.'
@@ -310,7 +310,7 @@ final class ResourceRequestStream implements RequestStreamInterface
             throw new \RuntimeException('Stream is not seekable.');
         }
 
-        if (\fseek($this->resource, $this->startOffset) === -1) {
+        if (\fseek($this->ensureResource(), $this->startOffset) === -1) {
             throw new \RuntimeException(
                 'Unable to rewind stream for retry.'
             );
@@ -328,8 +328,8 @@ final class ResourceRequestStream implements RequestStreamInterface
             return false;
         }
 
-        $this->ensureResource();
-        $meta = \stream_get_meta_data($this->resource);
+        $resource = $this->ensureResource();
+        $meta = \stream_get_meta_data($resource);
         $mode = $meta['mode'];
 
         return \str_contains($mode, 'w')
@@ -342,13 +342,13 @@ final class ResourceRequestStream implements RequestStreamInterface
     /** @inheritDoc */
     public function write(string $string): int
     {
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
         if (!$this->isWritable()) {
             throw new \RuntimeException('Stream is not writable.');
         }
 
-        $bytes = \fwrite($this->resource, $string);
+        $bytes = \fwrite($resource, $string);
         if ($bytes === false) {
             throw new \RuntimeException('Unable to write to stream.');
         }
@@ -367,8 +367,8 @@ final class ResourceRequestStream implements RequestStreamInterface
             return false;
         }
 
-        $this->ensureResource();
-        $meta = \stream_get_meta_data($this->resource);
+        $resource = $this->ensureResource();
+        $meta = \stream_get_meta_data($resource);
         $mode = $meta['mode'];
 
         return \str_contains($mode, 'r') || \str_contains($mode, '+');
@@ -377,7 +377,7 @@ final class ResourceRequestStream implements RequestStreamInterface
     /** @inheritDoc */
     public function read(int $length): string
     {
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
         if ($length < 0) {
             throw new \InvalidArgumentException(
@@ -396,7 +396,7 @@ final class ResourceRequestStream implements RequestStreamInterface
             return '';
         }
 
-        $data = \fread($this->resource, $boundedLength);
+        $data = \fread($resource, $boundedLength);
         if ($data === false) {
             throw new \RuntimeException('Unable to read from stream.');
         }
@@ -414,7 +414,7 @@ final class ResourceRequestStream implements RequestStreamInterface
     /** @inheritDoc */
     public function getContents(): string
     {
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
         if (!$this->isReadable()) {
             throw new \RuntimeException('Stream is not readable.');
@@ -422,7 +422,7 @@ final class ResourceRequestStream implements RequestStreamInterface
 
         $remaining = $this->remainingLogicalBytes();
         $contents = \stream_get_contents(
-            $this->resource,
+            $resource,
             $remaining ?? -1
         );
         if ($contents === false) {
@@ -446,8 +446,8 @@ final class ResourceRequestStream implements RequestStreamInterface
             return $key === null ? [] : null;
         }
 
-        $this->ensureResource();
-        $meta = \stream_get_meta_data($this->resource);
+        $resource = $this->ensureResource();
+        $meta = \stream_get_meta_data($resource);
 
         if ($key === null) {
             return $meta;
@@ -465,9 +465,9 @@ final class ResourceRequestStream implements RequestStreamInterface
      */
     public function getResource()
     {
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
-        return $this->resource;
+        return $resource;
     }
 
     /**
@@ -516,7 +516,7 @@ final class ResourceRequestStream implements RequestStreamInterface
             }
         }
 
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
         if (!$this->isSeekable()) {
             throw new \RuntimeException(
@@ -525,7 +525,7 @@ final class ResourceRequestStream implements RequestStreamInterface
         }
 
         $position = $this->tell();
-        if (\fseek($this->resource, $this->startOffset) === -1) {
+        if (\fseek($resource, $this->startOffset) === -1) {
             throw new \RuntimeException(
                 'Unable to seek resource stream for hashing.'
             );
@@ -535,13 +535,13 @@ final class ResourceRequestStream implements RequestStreamInterface
             $ctx = \hash_init($algo);
             \hash_update_stream(
                 $ctx,
-                $this->resource,
+                $resource,
                 $this->size ?? -1
             );
 
             return \hash_final($ctx, $raw);
         } finally {
-            if (\fseek($this->resource, $position) === -1) {
+            if (\fseek($resource, $position) === -1) {
                 throw new \RuntimeException(
                     'Unable to restore resource stream position.'
                 );
@@ -597,19 +597,28 @@ final class ResourceRequestStream implements RequestStreamInterface
         return $this->fullyConsumed;
     }
 
-    private function ensureResource(): void
+    /**
+     * Return the open resource, opening it first when it is deferred.
+     *
+     * @return resource
+     * @throws \RuntimeException When the stream has been detached.
+     */
+    private function ensureResource()
     {
         if ($this->resource !== null) {
-            return;
+            return $this->resource;
         }
 
         if ($this->resourceOpener === null) {
             throw new \RuntimeException('Stream has been detached.');
         }
 
-        $this->resource = $this->openFreshResource();
-        $this->startOffset = self::resourcePosition($this->resource);
+        $resource = $this->openFreshResource();
+        $this->resource = $resource;
+        $this->startOffset = self::resourcePosition($resource);
         $this->logicalPosition = $this->startOffset;
+
+        return $resource;
     }
 
     /**
@@ -631,6 +640,9 @@ final class ResourceRequestStream implements RequestStreamInterface
         return $resource;
     }
 
+    /**
+     * @phpstan-assert-if-true resource $resource
+     */
     private static function isStreamResource(mixed $resource): bool
     {
         return \is_resource($resource)

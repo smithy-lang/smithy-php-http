@@ -133,9 +133,9 @@ final class Stream implements StreamInterface
     /** @inheritDoc */
     public function tell(): int
     {
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
-        $position = \ftell($this->resource);
+        $position = \ftell($resource);
         if ($position === false) {
             throw new \RuntimeException('Unable to determine stream position.');
         }
@@ -164,13 +164,13 @@ final class Stream implements StreamInterface
     /** @inheritDoc */
     public function seek(int $offset, int $whence = SEEK_SET): void
     {
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
         if (!$this->isSeekable()) {
             throw new \RuntimeException('Stream is not seekable.');
         }
 
-        if (\fseek($this->resource, $offset, $whence) === -1) {
+        if (\fseek($resource, $offset, $whence) === -1) {
             throw new \RuntimeException(
                 "Unable to seek to position {$offset}."
             );
@@ -205,13 +205,13 @@ final class Stream implements StreamInterface
     /** @inheritDoc */
     public function write(string $string): int
     {
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
         if (!$this->isWritable()) {
             throw new \RuntimeException('Stream is not writable.');
         }
 
-        $bytes = \fwrite($this->resource, $string);
+        $bytes = \fwrite($resource, $string);
         if ($bytes === false) {
             throw new \RuntimeException('Unable to write to stream.');
         }
@@ -237,7 +237,7 @@ final class Stream implements StreamInterface
     /** @inheritDoc */
     public function read(int $length): string
     {
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
         if ($length < 0) {
             throw new \InvalidArgumentException(
@@ -253,7 +253,7 @@ final class Stream implements StreamInterface
             throw new \RuntimeException('Stream is not readable.');
         }
 
-        $data = \fread($this->resource, $length);
+        $data = \fread($resource, $length);
         if ($data === false) {
             throw new \RuntimeException('Unable to read from stream.');
         }
@@ -264,13 +264,13 @@ final class Stream implements StreamInterface
     /** @inheritDoc */
     public function getContents(): string
     {
-        $this->ensureResource();
+        $resource = $this->ensureResource();
 
         if (!$this->isReadable()) {
             throw new \RuntimeException('Stream is not readable.');
         }
 
-        $contents = \stream_get_contents($this->resource);
+        $contents = \stream_get_contents($resource);
         if ($contents === false) {
             throw new \RuntimeException('Unable to read stream contents.');
         }
@@ -294,13 +294,21 @@ final class Stream implements StreamInterface
         return $meta[$key] ?? null;
     }
 
-    private function ensureResource(): void
+    /**
+     * Return the open resource.
+     *
+     * @return resource
+     * @throws \RuntimeException When the stream has been detached.
+     */
+    private function ensureResource()
     {
-        if ($this->resource === null) {
-            throw new \RuntimeException('Stream has been detached.');
-        }
+        return $this->resource
+            ?? throw new \RuntimeException('Stream has been detached.');
     }
 
+    /**
+     * @phpstan-assert-if-true resource $resource
+     */
     private static function isStreamResource(mixed $resource): bool
     {
         return \is_resource($resource)

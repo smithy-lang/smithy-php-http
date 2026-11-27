@@ -90,11 +90,12 @@ final class Cancellation implements CancellationInterface
             return;
         }
 
-        $this->reason = new CancelledException(
+        $cancelled = new CancelledException(
             'Operation was cancelled.',
             0,
             $reason
         );
+        $this->reason = $cancelled;
         $subscribers = $this->subscribers;
         $this->subscribers = [];
 
@@ -102,7 +103,7 @@ final class Cancellation implements CancellationInterface
 
         foreach ($subscribers as $subscriber) {
             try {
-                $subscriber($this->reason);
+                $subscriber($cancelled);
             } catch (\Throwable $error) {
                 $callbackError ??= $error;
             }

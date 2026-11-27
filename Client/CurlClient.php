@@ -664,14 +664,12 @@ final class CurlClient implements HttpClientInterface
                                     return CURL_READFUNC_PAUSE;
                                 }
 
-                                if ($uploadState->retainedFinalChunk
-                                        !== null
-                                ) {
+                                $chunk = $uploadState
+                                    ->retainedFinalChunk;
+                                if ($chunk !== null) {
                                     self::verifyUploadBodyExhausted(
                                         $uploadState
                                     );
-                                    $chunk = $uploadState
-                                        ->retainedFinalChunk;
 
                                     if (\strlen($chunk) > $length
                                     ) {

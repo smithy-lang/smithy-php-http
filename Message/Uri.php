@@ -362,7 +362,7 @@ final class Uri implements UriInterface
             '/(?:[^a-zA-Z0-9_\-.~:@!$&\'()*+,;=%\/]+|%(?![A-Fa-f0-9]{2}))/',
             fn(array $match) => \rawurlencode($match[0]),
             $path
-        );
+        ) ?? throw new \InvalidArgumentException('Unable to encode URI path.');
     }
 
     /**
@@ -374,6 +374,8 @@ final class Uri implements UriInterface
             '/(?:[^a-zA-Z0-9_\-.~!$&\'()*+,;=%:@\/?]+|%(?![A-Fa-f0-9]{2}))/',
             fn(array $match) => \rawurlencode($match[0]),
             $str
+        ) ?? throw new \InvalidArgumentException(
+            'Unable to encode URI query or fragment.'
         );
     }
 
