@@ -205,7 +205,7 @@ final class CurlConnectionFactory implements ConnectionFactoryInterface
     /**
      * Apply configured TLS 1.2 cipher suites.
      *
-     * @param list<string> $cipherSuites
+     * @param non-empty-list<non-empty-string> $cipherSuites
      */
     private static function applyTlsCipherSuites(
         \CurlHandle $handle,
@@ -257,7 +257,7 @@ final class CurlConnectionFactory implements ConnectionFactoryInterface
     /**
      * Apply configured TLS 1.3 cipher suites.
      *
-     * @param list<string> $cipherSuites
+     * @param non-empty-list<non-empty-string> $cipherSuites
      */
     private static function applyTls13CipherSuites(
         \CurlHandle $handle,

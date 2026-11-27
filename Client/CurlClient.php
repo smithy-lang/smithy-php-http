@@ -201,6 +201,14 @@ final class CurlClient implements HttpClientInterface
             $options->cancellation
         );
         $uri = $request->getUri();
+        $url = (string) $uri;
+        $requestMethod = $request->getMethod();
+        if ($url === '' || $requestMethod === '') {
+            throw new RequestException(
+                'HTTP requests need a method and a URI.',
+                $request
+            );
+        }
         $proxy = $options->proxy;
         $contextKey = $uri->getScheme() . '://' . $uri->getHost() . ':'
             . $uri->getPort() . ($proxy === null ? '' : '|' . $proxy);
@@ -269,7 +277,6 @@ final class CurlClient implements HttpClientInterface
         try {
             $requestBody = $request->getBody();
             $requestBodySize = $requestBody->getSize();
-            $requestMethod = $request->getMethod();
             $hasTransferEncoding =
                 $request->hasHeader('Transfer-Encoding');
             $responseBodyAllowed =
@@ -329,7 +336,7 @@ final class CurlClient implements HttpClientInterface
                     || $connectionManagerConfig->maxIdlePerHost === 0;
             }
             $curlOptions = [
-                CURLOPT_URL => (string) $request->getUri(),
+                CURLOPT_URL => $url,
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
                 CURLOPT_CUSTOMREQUEST => $requestMethod,
                 CURLOPT_NOBODY => \strcasecmp($requestMethod, 'HEAD') === 0,

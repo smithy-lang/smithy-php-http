@@ -20,11 +20,16 @@ final class TLSConfiguration
     /**
      * Empty cipher suite lists use the TLS backend defaults.
      *
-     * @param list<string> $cipherSuites TLS 1.2 cipher suite names to allow.
-     * @param list<string> $tls13CipherSuites TLS 1.3 cipher suite names to
-     *                                        allow.
+     * @param non-empty-string|null $certificate Client certificate file path.
+     * @param non-empty-string|null $privateKey Client private key file path.
+     * @param non-empty-string|null $caFile CA bundle file path.
+     * @param non-empty-string|null $caDir CA certificate directory path.
+     * @param list<non-empty-string> $cipherSuites TLS 1.2 cipher suite names to allow.
+     * @param list<non-empty-string> $tls13CipherSuites TLS 1.3 cipher suite names to
+     *                                                  allow.
      *
-     * @throws \InvalidArgumentException If a cipher suite name is invalid.
+     * @throws \InvalidArgumentException If a path is empty or a cipher suite name is
+     *                                   invalid.
      */
     public function __construct(
         public readonly bool $verifyPeer = true,
@@ -36,6 +41,19 @@ final class TLSConfiguration
         public readonly array $tls13CipherSuites = []
     )
     {
+        foreach ([
+            'certificate' => $certificate,
+            'privateKey' => $privateKey,
+            'caFile' => $caFile,
+            'caDir' => $caDir
+        ] as $parameter => $path) {
+            if ($path === '') {
+                throw new \InvalidArgumentException(
+                    "TLS {$parameter} must not be empty."
+                );
+            }
+        }
+
         foreach ([...$cipherSuites, ...$tls13CipherSuites] as $cipherSuite) {
             if (!\is_string($cipherSuite)
                 || !\preg_match(

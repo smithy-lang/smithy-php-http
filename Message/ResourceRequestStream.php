@@ -672,6 +672,11 @@ final class ResourceRequestStream implements RequestStreamInterface
         $this->fullyConsumed = $consumed >= $length;
     }
 
+    /**
+     * @param int<0, max> $length Requested read length.
+     *
+     * @return int<0, max> Length capped at the remaining logical bytes.
+     */
     private function limitReadLength(int $length): int
     {
         $remaining = $this->remainingLogicalBytes();
@@ -679,6 +684,9 @@ final class ResourceRequestStream implements RequestStreamInterface
         return $remaining === null ? $length : \min($length, $remaining);
     }
 
+    /**
+     * @return int<0, max>|null Bytes left before the logical size, or null when unsized.
+     */
     private function remainingLogicalBytes(): ?int
     {
         if ($this->size === null) {
